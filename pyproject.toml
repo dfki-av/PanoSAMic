@@ -1,0 +1,74 @@
+[build-system]
+requires      = ["setuptools >= 80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "PanoSAMic"
+version         = "2.0"
+requires-python = ">=3.11"                                                                                                          # measured using vermin
+readme          = "README.md"
+description     = "PanoSAMic: Semantic segmentation for panoramic images using SAM with multi-modal fusion and spherical attention"
+
+license = { text = "LICENSE" }
+
+authors     = [{ name = "Mahdi Chamseddine", email = "mahdi.chamseddine@dfki.de" }]
+maintainers = [{ name = "Mahdi Chamseddine", email = "mahdi.chamseddine@dfki.de" }]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+dependencies = [
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "segment-anything",
+    "pytorch-optimizer",
+    "tensorboard",
+    "standard-imghdr",   # Temporary fix for tensorboard with python 3.13
+    "tqdm",
+]
+
+[project.urls]
+Homepage   = "https://github.com/dfki-av/PanoSAMic"
+Repository = "https://github.com/dfki-av/PanoSAMic"
+Issues     = "https://github.com/dfki-av/PanoSAMic/issues"
+
+[tool.uv.sources]
+# potentially fork segment-anything to maintain compatibility
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything.git" }
+# sam3             = { git = "https://github.com/facebookresearch/sam3.git" }
+
+[project.optional-dependencies]
+flops = ["fvcore"] # to measure model flops
+sam3 = [ # to run sam3 experiments
+    "timm",
+    "ftfy",
+    "regex",
+    "typing-extensions",
+    "iopath",
+    "huggingface-hub",
+    "einops",
+    "decord",
+    "pycocotools",
+    "psutil",
+]
+
+[tool.setuptools.packages.find]
+include = ["panosamic*"]
+
+[tool.ruff]
+exclude      = [".eggs", ".git", ".venv"]
+line-length  = 88                         # same as black
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "double"

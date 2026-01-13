@@ -1,0 +1,34 @@
+{
+    "channel_attention": {
+        "moving_attention": true,
+        "window_size": 8,
+        "stride": 4,
+        "// possible aggregation options: none (default), mean, max": "_comment",
+        "aggregation": "max"
+    },
+    "spatial_attention": {
+        "moving_attention": true,
+        "window_size": 8,
+        "stride": 4,
+        "// possible aggregation options: none (default), mean, max": "_comment",
+        "aggregation": "none"
+    },
+    "loss": {
+        "CrossEntropyLoss": 1,
+        "JaccardLoss": 1,
+        "ScheduledLoss": {
+            "transition_start_ratio": 0.5,
+            "transition_finish_ratio": 0.9
+        }
+    },
+    "optimizer": "Ranger21",
+    "lr_scheduler": {
+        "start_lr": 1e-5,
+        "max_lr": 1e-3,
+        "// warm_up_ratio is a ratio of the dataloader length": "_comment",
+        "warm_up_ratio": 0.1,
+        "// wind_down_ratio is a ratio of the dataloader length": "_comment",
+        "wind_down_ratio": 10
+    },
+    "dual_view_fusion": true
+}

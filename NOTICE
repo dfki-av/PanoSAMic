@@ -1,0 +1,12 @@
+PanoSAMic
+Copyright 2026 Mahdi Chamseddine
+
+This product includes software developed by Meta Platforms, Inc. and affiliates 
+for the Segment Anything Model (SAM) (https://github.com/facebookresearch/segment-anything).
+
+The file 'image_encoder.py' is a derivative work of 'segment_anything/modeling/image_encoder.py' 
+from the original SAM repository.
+
+Original Software:
+Copyright (c) Meta Platforms, Inc. and affiliates.
+Licensed under the Apache License, Version 2.0.
