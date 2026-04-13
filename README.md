@@ -280,7 +280,7 @@ assets/
 
 ## Acknowledgement
 
-...
+This research was funded by the European Union as part of the projects: HumanTech (Grant Agreement 101058236) and ShieldBOT (Grant Agreement 101235093).
 
 ## License
 
