@@ -50,7 +50,7 @@ def refine_semantic_with_instances(
         return semantic_pred
 
     device = semantic_pred.device
-    C, H, W = semantic_pred.shape
+    _C, _H, _W = semantic_pred.shape
 
     # Get class predictions from semantic logits/probabilities
     semantic_classes = semantic_pred.argmax(dim=0)  # (H, W)

@@ -24,7 +24,6 @@ class Structured3dDataset(BaseDataset):
         "refrigerator", "television", "paper", "towel", "shower curtain", "box",
         "whiteboard", "person", "nightstand", "toilet", "sink", "lamp", "bathtub", "bag",
         "otherstructure", "otherfurniture", "otherprop",
-        # fmt: on
     )
     NUM_CLASSES = len(CLASS_NAMES)
 
@@ -122,7 +121,7 @@ def main():
         semantic_only=True,
     )
     print(f"Dataset length: {len(dataset)}")
-    sample_data, sample_labels = dataset[50]
+    _sample_data, sample_labels = dataset[50]
     print(torch.unique(sample_labels["semantics"]))
 
 

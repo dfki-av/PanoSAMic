@@ -16,7 +16,7 @@ def delta_orthogonal_(tensor: torch.Tensor, gain: float = 1) -> torch.Tensor:
     with torch.no_grad():
         torch.nn.init.zeros_(tensor)
         ortho = torch.zeros(tensor.shape[0], tensor.shape[1])
-        torch.nn.init.orthogonal_(ortho, gain=gain)  # type:ignore
+        torch.nn.init.orthogonal_(ortho, gain=gain)
         tensor[:, :, tensor.shape[2] // 2, tensor.shape[3] // 2] = ortho
     return tensor
 

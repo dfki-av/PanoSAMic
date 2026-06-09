@@ -39,14 +39,11 @@ class Matterport3dDataset(BaseDataset):
         "pa4otMbVnkk", "q9vSo1VnCiC", "rqfALeAoiTq", "UwV83HsGsw3", "wc2JMjhGNzB",
         "WYY7iVyf5p8", "YFuZgdQ5vWj", "yqstnuAEVhm", "YVUC4YcDtcY", "gxdoqLR6rwA",
         "gYvKGZ5eRqb", "RPmz2sHmrrY", "Vt2qJdWjCF2",
-        # fmt: on
     )
-    # fmt: off
     CLASS_NAMES = (
         "wall", "floor", "chair", "door", "table", "picture", "furniture", "objects",
         "window", "sofa", "bed", "sink", "stairs", "ceiling", "toilet", "mirror",
         "shower", "bathtub", "counter", "shelving",
-        # fmt: on
     )
 
     NUM_CLASSES = len(CLASS_NAMES)
@@ -197,7 +194,7 @@ def main():
         semantic_only=True,
     )
     print(f"Dataset length: {len(dataset)}")
-    sample_data, sample_labels = dataset[50]
+    _sample_data, sample_labels = dataset[50]
     print(torch.unique(sample_labels["semantics"]))
 
 

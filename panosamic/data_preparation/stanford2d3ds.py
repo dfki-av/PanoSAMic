@@ -90,10 +90,11 @@ def process_sample(
     input_sizes.append(instances.size)
 
     input_sizes = set(input_sizes)
-    assert len(input_sizes) == 1, (
-        "Dimensions of input images do not match in sample: "
-        + f"{area_pano_dir.name}/{sample_name}"
-    )
+    if len(input_sizes) != 1:
+        raise ValueError(
+            f"Dimensions of input images do not match in sample: "
+            f"{area_pano_dir.name}/{sample_name}"
+        )
 
     depth_mask = Image.fromarray(  # (256 * 256 - 1)  # Invalid or max depth
         np.array(depth, dtype=np.uint16) != 65535
@@ -171,7 +172,9 @@ def main():
         except ImportError:
             import warnings
 
-            warnings.warn("Matplotlib must be installed for plotting histograms!")
+            warnings.warn(
+                "Matplotlib must be installed for plotting histograms!", stacklevel=2
+            )
             print("Proceeding without plotting...")
             args.debug = False
 
@@ -181,8 +184,10 @@ def main():
     dir_contents = [d.name for d in dataset_dir.iterdir() if d.is_dir()]
     area_list = [d for d in dir_contents if "area_" in d]
     area_list.sort()  # Keep the areas sorted
-    assert area_list, f"No areas were found in {dataset_dir}"
-    assert "assets" in dir_contents, f"Missing 'assets' directory in {dataset_dir}"
+    if not area_list:
+        raise FileNotFoundError(f"No areas were found in {dataset_dir}")
+    if "assets" not in dir_contents:
+        raise FileNotFoundError(f"Missing 'assets' directory in {dataset_dir}")
 
     output_dir = Path(args.output_root)
     if not output_dir.is_dir():
@@ -211,7 +216,7 @@ def main():
             json.dump(area_dict, f)
     else:
         print("-- Reading file names: loading cached names")
-        with open(cache_file, "r") as f:
+        with open(cache_file) as f:
             area_dict = json.load(f)
 
     depth_hist_dict = {}
@@ -246,7 +251,7 @@ def main():
 
         if args.debug and save_depth_stats:
             plot_histogram(
-                plt,  # type:ignore
+                plt,
                 depth_hist_dict[area][0],
                 depth_hist_dict[area][1][:-1],
                 f"Histogram of depths in {area}",
@@ -262,7 +267,7 @@ def main():
                     depth_hist = value
 
             plot_histogram(
-                plt,  # type:ignore
+                plt,
                 depth_hist[0],
                 depth_hist[1][:-1],
                 "Histogram of depths in all areas",

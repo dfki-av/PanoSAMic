@@ -3,6 +3,7 @@ Author: Mahdi Chamseddine
 """
 
 from functools import partial
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -17,6 +18,66 @@ from panosamic.model.image_encoder import ImageEncoderViT
 from panosamic.model.initialization import orthogonal_module_init
 from panosamic.model.panosamic_net import PanoSAMic
 from panosamic.model.semantic_decoder import BaselineDecoder, ConvDecoder
+
+# Official SAM checkpoint URLs from Meta — source:
+# https://github.com/facebookresearch/segment-anything#model-checkpoints
+# Update here if Meta moves the files.
+_SAM_URLS: dict[str, str] = {
+    "vit_h": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+    "vit_l": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth",
+    "vit_b": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+}
+
+
+def get_sam_weights_path(sam_weights_path: str | Path | None, vit_model: str) -> Path:
+    """Return a local path to SAM weights for vit_model.
+
+    Checks sam_weights_path first (file or directory); only downloads from Meta's
+    servers when no valid local file is found.  Downloaded files are cached under
+    ~/.cache/panosamic/sam/ and reused on subsequent calls.
+    """
+    if sam_weights_path is not None:
+        p = Path(sam_weights_path)
+        if p.is_file():
+            return p
+        if p.is_dir():
+            match = next(p.glob(f"*{vit_model}*.pth"), None)
+            if match:
+                return match
+
+    url = _SAM_URLS[vit_model]
+    cache_dir = Path.home() / ".cache" / "panosamic" / "sam"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    dest = cache_dir / url.split("/")[-1]
+    if not dest.exists():
+        print(f"Downloading SAM weights ({vit_model}) to {dest} …")
+        torch.hub.download_url_to_file(url, str(dest))
+    return dest
+
+
+def load_sam_backbone(model: PanoSAMic, sam_weights_path: Path) -> None:
+    """Load frozen SAM backbone weights into a freshly built PanoSAMic model."""
+    state = torch.load(sam_weights_path, map_location="cpu", weights_only=True)
+    _, unexpected = model.load_state_dict(state, strict=False)
+    sam_unexpected = [
+        k
+        for k in unexpected
+        if not k.startswith(
+            (
+                "feature_fuser.",
+                "semantic_decoder.",
+                "pixel_mean",
+                "pixel_std",
+                # absent in semantic_only=True models
+                "prompt_encoder.",
+                "mask_decoder.",
+            )
+        )
+    ]
+    if sam_unexpected:
+        raise RuntimeError(
+            f"Unexpected keys when loading SAM backbone: {sam_unexpected}"
+        )
 
 
 def freeze_parameters(module: nn.Module) -> None:

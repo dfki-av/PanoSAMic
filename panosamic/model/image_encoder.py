@@ -15,7 +15,7 @@ To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-
 or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 """
 
-from typing import Callable, Type
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -44,8 +44,8 @@ class ImageEncoderViT(nn.Module):
         mlp_ratio: float = 4.0,
         out_chans: int = 256,
         qkv_bias: bool = True,
-        norm_layer: Type[nn.Module] | Callable[[int], nn.Module] = nn.LayerNorm,
-        act_layer: Type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] | Callable[[int], nn.Module] = nn.LayerNorm,
+        act_layer: type[nn.Module] = nn.GELU,
         use_abs_pos: bool = True,
         use_rel_pos: bool = False,
         rel_pos_zero_init: bool = True,
@@ -151,8 +151,8 @@ class TransformerBlock(nn.Module):
         num_heads: int,
         mlp_ratio: float = 4.0,
         qkv_bias: bool = True,
-        norm_layer: Type[nn.Module] | Callable = nn.LayerNorm,
-        act_layer: Type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] | Callable = nn.LayerNorm,
+        act_layer: type[nn.Module] = nn.GELU,
         use_rel_pos: bool = False,
         rel_pos_zero_init: bool = True,
         window_size: int = 0,
@@ -202,7 +202,7 @@ class TransformerBlock(nn.Module):
         x = self.attn(x)
         # Reverse window partition
         if self.window_size > 0:
-            x = window_unpartition(x, self.window_size, pad_hw, (H, W))  # type: ignore
+            x = window_unpartition(x, self.window_size, pad_hw, (H, W))
 
         x = shortcut + x
         x = x + self.mlp(self.norm2(x))
@@ -242,9 +242,10 @@ class Attention(nn.Module):
 
         self.use_rel_pos = use_rel_pos
         if self.use_rel_pos:
-            assert input_size is not None, (
-                "Input size must be provided if using relative positional encoding."
-            )
+            if input_size is None:
+                raise ValueError(
+                    "Input size must be provided if using relative positional encoding."
+                )
             # initialize relative positional embeddings
             self.rel_pos_h = nn.Parameter(torch.zeros(2 * input_size[0] - 1, head_dim))
             self.rel_pos_w = nn.Parameter(torch.zeros(2 * input_size[1] - 1, head_dim))

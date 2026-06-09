@@ -3,12 +3,14 @@ Author: Mahdi Chamseddine
 """
 
 from functools import partial
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from huggingface_hub import PyTorchModelHubMixin
 from segment_anything.modeling.mask_decoder import MaskDecoder
 from segment_anything.modeling.prompt_encoder import PromptEncoder
 from segment_anything.utils.amg import batch_iterator
@@ -24,8 +26,18 @@ from panosamic.model.mask_postprocessing import (
 from panosamic.model.prompt_validator import prompt_validator
 from panosamic.model.semantic_decoder import BaselineDecoder, ConvDecoder
 
+# Keys belonging to the frozen SAM backbone — never serialized for Hub release.
+_FROZEN_PREFIXES = ("image_encoder.", "prompt_encoder.", "mask_decoder.")
 
-class PanoSAMic(nn.Module):
+
+class PanoSAMic(
+    nn.Module,
+    PyTorchModelHubMixin,
+    repo_url="https://github.com/dfki-av/PanoSAMic",
+    license="cc-by-nc-sa-4.0",
+    pipeline_tag="image-segmentation",
+    tags=["panoramic", "semantic-segmentation", "sam", "multimodal"],
+):
     mask_threshold: float = 0.0
     image_format: str = "RGB"
 
@@ -50,18 +62,22 @@ class PanoSAMic(nn.Module):
         box_nms_thresh: float = 0.7,
         min_mask_region_area: int = 0,
         # Pixel mean and std values from original SAM
-        pixel_mean: list[float] = [123.675, 116.28, 103.53],
-        pixel_std: list[float] = [58.395, 57.12, 57.375],
+        pixel_mean: list[float] | None = None,
+        pixel_std: list[float] | None = None,
     ) -> None:
+        if pixel_std is None:
+            pixel_std = [58.395, 57.12, 57.375]
+        if pixel_mean is None:
+            pixel_mean = [123.675, 116.28, 103.53]
         super().__init__()
 
         # Sanity checks
-        assert semantic_only or (
-            prompt_encoder is not None and mask_decoder is not None
-        ), "prompt_encoder and mask_decoder are required for full panosamic."
-        assert "image" in input_modalities, (
-            "'image' modality is required for instance segmentation"
-        )
+        if not semantic_only and (prompt_encoder is None or mask_decoder is None):
+            raise ValueError(
+                "prompt_encoder and mask_decoder are required for full panosamic."
+            )
+        if "image" not in input_modalities:
+            raise ValueError("'image' modality is required for instance segmentation")
 
         self.modalities = input_modalities
         self.n_modalities = len(self.modalities)
@@ -118,9 +134,11 @@ class PanoSAMic(nn.Module):
     def forward(
         self,
         batched_input: list[dict[str, torch.Tensor]],
-        batched_prompts: list[dict[str, Any]] = list(),
+        batched_prompts: list[dict[str, Any]] | None = None,
         multimask_output: bool = True,
-    ) -> list[dict[str, torch.Tensor]]:
+    ) -> list[dict[str, Any]]:
+        if batched_prompts is None:
+            batched_prompts = list()
         input_images, image_shapes = self.data_preparation_block(batched_input)
 
         encoder_output_list, encoder_branch_lists = self.image_encoder_block(
@@ -176,7 +194,9 @@ class PanoSAMic(nn.Module):
             del fused_features
 
         segmentation_output = []
-        for instances, semantics in zip(instance_predictions, semantic_predictions):
+        for instances, semantics in zip(
+            instance_predictions, semantic_predictions, strict=False
+        ):
             combined = {
                 "instance_masks": instances,
                 "sem_preds": semantics,
@@ -283,7 +303,7 @@ class PanoSAMic(nn.Module):
         self,
         encoder_embeddings: torch.Tensor,
         image_shapes: list[tuple[int, ...]],
-        batched_prompts: list[dict[str, Any]] = list(),
+        batched_prompts: list[dict[str, Any]] | None = None,
         multimask_output: bool = True,
         use_all_modalities: bool = True,
     ) -> list[list[dict[str, Any]]]:
@@ -301,6 +321,8 @@ class PanoSAMic(nn.Module):
         Returns:
             List of merged mask lists, one per batch item
         """
+        if batched_prompts is None:
+            batched_prompts = list()
         if self.prompt_encoder is None or self.mask_decoder is None:
             return [[] for _ in image_shapes]
 
@@ -353,7 +375,7 @@ class PanoSAMic(nn.Module):
         self,
         encoder_embeddings: torch.Tensor,
         image_shapes: list[tuple[int, ...]],
-        batched_prompts: list[dict[str, Any]] = list(),
+        batched_prompts: list[dict[str, Any]] | None = None,
         multimask_output: bool = True,
         use_all_modalities: bool = True,
     ) -> list[list[dict[str, Any]]]:
@@ -377,6 +399,8 @@ class PanoSAMic(nn.Module):
         Returns:
             List of merged mask lists, one per batch item
         """
+        if batched_prompts is None:
+            batched_prompts = list()
         if self.prompt_encoder is None or self.mask_decoder is None:
             return [[] for _ in image_shapes]
 
@@ -420,7 +444,9 @@ class PanoSAMic(nn.Module):
 
         # Fuse masks from both views using existing dual-view fusion
         fused_predictions = []
-        for unshifted_list, shifted_list in zip(unshifted_masks, shifted_masks):
+        for unshifted_list, shifted_list in zip(
+            unshifted_masks, shifted_masks, strict=False
+        ):
             fused_masks = fuse_dual_view_masks(
                 unshifted_masks=unshifted_list,
                 shifted_masks=shifted_list,
@@ -435,7 +461,7 @@ class PanoSAMic(nn.Module):
         self,
         image_embeddings: torch.Tensor,
         image_shapes: list[tuple[int, ...]],
-        batched_prompts: list[dict[str, Any]] = list(),
+        batched_prompts: list[dict[str, Any]] | None = None,
         multimask_output: bool = True,
     ) -> list[list[dict[str, Any]]]:
         """
@@ -452,6 +478,8 @@ class PanoSAMic(nn.Module):
         Returns:
             List of mask lists, one per batch item
         """
+        if batched_prompts is None:
+            batched_prompts = list()
         prompt_encoder = (
             self.prompt_encoder if self.low_memory_mode else self._cached_prompt_encoder
         )
@@ -471,7 +499,7 @@ class PanoSAMic(nn.Module):
 
         # For loop over all the batches
         for prompt, embeddings, shape in zip(
-            batched_prompts, image_embeddings, image_shapes
+            batched_prompts, image_embeddings, image_shapes, strict=False
         ):
             prompt, point_coords, point_labels = prompt_validator(
                 prompt, self.points_per_side, self.device, self.img_size
@@ -599,7 +627,9 @@ class PanoSAMic(nn.Module):
 
         upscaled_predictions = [
             self._postprocess(prediction[None, :], shape, shape)
-            for prediction, shape in zip(semantic_predictions, image_shapes)
+            for prediction, shape in zip(
+                semantic_predictions, image_shapes, strict=False
+            )
         ]
 
         return upscaled_predictions
@@ -663,10 +693,169 @@ class PanoSAMic(nn.Module):
         )
         return masks
 
-    def freeze_module(self):
-        # Potential replacement to "with torch.no_grad()" for more flexibility
-        # To be called after loading weights
-        raise NotImplementedError
+    def trainable_state_dict(self) -> dict[str, torch.Tensor]:
+        """Return only the trainable (non-SAM-backbone) parameters."""
+        return {
+            k: v
+            for k, v in self.state_dict().items()
+            if not k.startswith(_FROZEN_PREFIXES)
+        }
+
+    # ------------------------------------------------------------------
+    # Hugging Face Hub integration
+    # ------------------------------------------------------------------
+
+    def _save_pretrained(self, save_directory: Path) -> None:
+        """Save only the trainable weights as safetensors (no SAM backbone)."""
+        from safetensors.torch import save_file as safetensors_save
+
+        safetensors_save(
+            self.trainable_state_dict(), str(save_directory / "model.safetensors")
+        )
+
+    @classmethod
+    def _from_pretrained(  # type: ignore[override]  # ty: ignore[invalid-method-override]
+        cls,
+        *,
+        model_id: str,
+        revision: str | None,
+        cache_dir: str | Path | None,
+        force_download: bool,
+        local_files_only: bool,
+        token: str | bool | None,
+        map_location: str = "cpu",
+        strict: bool = False,
+        # PanoSAMic-specific kwargs — passed via from_pretrained(**model_kwargs)
+        sam_weights_path: str | Path | None = None,
+        vit_model: str = "vit_h",
+        config_path: str | Path,
+        num_classes: int,
+        subfolder: str | None = None,
+        modalities: tuple[str, ...] = ("image", "depth", "normals"),
+        **_ignored: Any,  # absorb any future mixin kwargs we don't know about
+    ) -> "PanoSAMic":
+        """Load trainable weights from Hub or local path on top of a SAM backbone."""
+        import json
+        import os
+
+        from safetensors.torch import load_file as safetensors_load
+
+        from panosamic.evaluation.utils.config import ModelConfig
+        from panosamic.model.model_builder import (
+            get_sam_weights_path,
+            load_sam_backbone,
+            panosamic_builder,
+        )
+
+        # --- resolve checkpoint file ---
+        if os.path.isfile(model_id):
+            ckpt_path = Path(model_id)
+        elif os.path.isdir(model_id):
+            ckpt_path = Path(model_id) / "model.safetensors"
+            if not ckpt_path.exists():
+                raise FileNotFoundError(f"No model.safetensors found in {model_id}")
+        else:
+            from huggingface_hub import hf_hub_download
+
+            ckpt_path = Path(
+                hf_hub_download(
+                    repo_id=model_id,
+                    filename="model.safetensors",
+                    subfolder=subfolder,
+                    revision=revision,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    local_files_only=local_files_only,
+                    token=token,
+                )
+            )
+
+        # --- build model from config ---
+        _valid_vit = ("vit_h", "vit_l", "vit_b")
+        if vit_model not in _valid_vit:
+            raise ValueError(
+                f"vit_model must be one of {_valid_vit}, got {vit_model!r}"
+            )
+        _vit_model = cast(Literal["vit_h", "vit_l", "vit_b"], vit_model)
+
+        with open(config_path) as fh:
+            cfg = json.load(fh)
+        model_config = ModelConfig(
+            vit_model=_vit_model,
+            modalities=modalities,
+            semantic_only=True,
+            channel_attention=cfg.get("channel_attention"),
+            spatial_attention=cfg.get("spatial_attention"),
+            dual_view_fusion=cfg.get("dual_view_fusion", True),
+            basic_fusion=cfg.get("basic_fusion"),
+        )
+        model = panosamic_builder(
+            config=model_config, num_classes=num_classes, freeze_encoder=True
+        )
+
+        # --- initialize frozen SAM backbone from local weights ---
+        sam_path = get_sam_weights_path(sam_weights_path, vit_model)
+        load_sam_backbone(model, sam_path)
+
+        # --- load trainable weights ---
+        if ckpt_path.suffix == ".safetensors":
+            trainable_ckpt = safetensors_load(str(ckpt_path), device=map_location)
+        else:
+            trainable_ckpt = torch.load(
+                ckpt_path, map_location=map_location, weights_only=True
+            )
+
+        missing, unexpected = model.load_state_dict(trainable_ckpt, strict=False)
+
+        unexpected = [k for k in unexpected if not k.startswith(_FROZEN_PREFIXES)]
+        if unexpected:
+            raise RuntimeError(f"Unexpected keys in checkpoint: {unexpected}")
+        trainable_missing = [k for k in missing if not k.startswith(_FROZEN_PREFIXES)]
+        if trainable_missing:
+            raise RuntimeError(
+                f"Trainable keys missing from checkpoint: {trainable_missing}"
+            )
+
+        print(f"Loaded {len(trainable_ckpt)} trainable tensors from {ckpt_path}")
+        return model.eval()
+
+    @classmethod
+    def from_pretrained_panosamic(
+        cls,
+        repo_or_path: str | Path,
+        *,
+        sam_weights_path: str | Path | None = None,
+        vit_model: str = "vit_h",
+        config_path: str | Path,
+        num_classes: int,
+        **hub_kwargs: Any,
+    ) -> "PanoSAMic":
+        """Convenience wrapper around ``from_pretrained`` with named PanoSAMic args.
+
+        *repo_or_path* may be a Hub repo id, a local ``.safetensors`` file, or a
+        directory containing ``model.safetensors``.  The frozen SAM backbone is
+        fetched from *sam_weights_path* or auto-downloaded when omitted.
+        """
+        import os
+
+        p = Path(repo_or_path)
+        # The mixin's from_pretrained accepts local directories but not bare files.
+        # Pass the parent directory when given a plain file path.
+        if p.is_file():
+            mixin_id = str(p.parent)
+        elif p.is_dir() or not os.path.exists(p):
+            mixin_id = str(p)
+        else:
+            mixin_id = str(p)
+
+        return cls.from_pretrained(  # type: ignore[return-value]
+            mixin_id,
+            sam_weights_path=sam_weights_path,
+            vit_model=vit_model,
+            config_path=config_path,
+            num_classes=num_classes,
+            **hub_kwargs,
+        )
 
 
 def horizontal_positional_encoding(width: int, d_model: int, device):

@@ -20,10 +20,12 @@ class PanoSAMicLoss(nn.Module):
         ignore_index: int = -1,
         reduction: str = "mean",
         gamma: int = 2,  # FocalLoss
-        config: dict[str, Any] = {},
+        config: dict[str, Any] | None = None,
         total_steps: int = 0,
         eps: float = 1e-6,
     ) -> None:
+        if config is None:
+            config = {}
         super().__init__()
         self.ignore_index = ignore_index
         self.config = config
@@ -42,16 +44,17 @@ class PanoSAMicLoss(nn.Module):
         )
 
         if self.scheduled_loss:
-            assert (
+            if not (
                 self.loss_weights[0]
                 and not self.loss_weights[1]
                 and (  # XOR operation since only one is allowed
                     (self.loss_weights[2] is not None)
                     ^ (self.loss_weights[3] is not None)
                 )
-            ), (
-                "ScheduledLoss is only supported for CrossEntropyLoss with DiceLoss or JaccardLoss"
-            )
+            ):
+                raise ValueError(
+                    "ScheduledLoss is only supported for CrossEntropyLoss with DiceLoss or JaccardLoss"
+                )
 
             self.transition_start *= self.scheduled_loss["transition_start_ratio"]
             self.transition_finish *= self.scheduled_loss["transition_finish_ratio"]
@@ -130,7 +133,8 @@ class PanoSAMicLoss(nn.Module):
                 overall_loss + (loss * self.w2) if overall_loss else (loss * self.w1)
             )
 
-        assert overall_loss, "Loss cannot be None, loss function is misconfigured."
+        if overall_loss is None:
+            raise RuntimeError("Loss cannot be None, loss function is misconfigured.")
         return overall_loss
 
     def jaccard_loss(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -177,11 +181,10 @@ class FocalLoss(nn.Module):
             reduction (str): "mean", "sum", or "none".
         """
         super().__init__()
-        assert reduction in (
-            "mean",
-            "sum",
-            "none",
-        ), f"{reduction} is not a valud value for reduction ('mean', 'sum', 'none')"
+        if reduction not in ("mean", "sum", "none"):
+            raise ValueError(
+                f"{reduction!r} is not a valid value for reduction ('mean', 'sum', 'none')"
+            )
         self.alpha = alpha  # Class weights (Tensor of shape (C,))
         self.gamma = gamma
         self.ignore_index = ignore_index

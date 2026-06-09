@@ -2,7 +2,6 @@
 Author: Mahdi Chamseddine
 """
 
-# type: ignore
 from argparse import ArgumentParser
 from typing import Any
 
@@ -12,9 +11,9 @@ from PIL import Image
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 
 
-def show_anns(anns: list[dict[str, Any]]) -> np.ndarray:
+def show_anns(anns: list[dict[str, Any]]) -> np.ndarray | None:
     if len(anns) == 0:
-        return
+        return None
     sorted_anns = sorted(anns, key=(lambda x: x["area"]), reverse=True)
 
     img = np.zeros(
@@ -48,6 +47,7 @@ def create_parser() -> ArgumentParser:
         required=True,
         help="Path to input image to be used",
     )
+    return parser
 
 
 def main() -> None:
@@ -68,6 +68,9 @@ def main() -> None:
     masks = mask_generator.generate(image)
 
     img = show_anns(masks)
+    if img is None:
+        print("No annotations found.")
+        return
     img = img * 255 if np.max(img) <= 1 else img
     Image.fromarray(img.astype(np.uint8)).save("output.png")
 

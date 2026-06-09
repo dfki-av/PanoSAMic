@@ -20,7 +20,7 @@ def compute_metrics(
     area_union = torch.zeros(num_classes, device=device)
     area_target = torch.zeros(num_classes, device=device)
 
-    for pred, label in zip(pred_list, label_list):
+    for pred, label in zip(pred_list, label_list, strict=False):
         intersection, union, target = intersection_and_union_gpu(
             torch.argmax(pred["sem_preds"], dim=1).squeeze(0),
             label["semantics"].squeeze(0),
@@ -59,8 +59,10 @@ def intersection_and_union_gpu(
             - area_target (torch.Tensor): Total target area for each class. Shape: (K,).
     """
     # Validate input dimensions
-    assert output.dim() in [1, 2, 3], "Output must have 1, 2, or 3 dimensions."
-    assert output.shape == target.shape, "Output and target must have the same shape."
+    if output.dim() not in (1, 2, 3):
+        raise ValueError("Output must have 1, 2, or 3 dimensions.")
+    if output.shape != target.shape:
+        raise ValueError("Output and target must have the same shape.")
 
     # Flatten tensors to 1D for easier processing
     output = output.view(-1)
@@ -112,8 +114,10 @@ def intersection_and_union_cpu(
     # Based on CyCTR implementation https://github.com/YanFangCS/CyCTR-Pytorch/blob/master/util/util.py
     # K classes, output and target sizes are N or N * L or N * H * W, each value in range 0 to K - 1.
 
-    assert output.ndim in [1, 2, 3], "Output must have 1, 2, or 3 dimensions."
-    assert output.shape == target.shape, "Output and target must have the same shape."
+    if output.ndim not in (1, 2, 3):
+        raise ValueError("Output must have 1, 2, or 3 dimensions.")
+    if output.shape != target.shape:
+        raise ValueError("Output and target must have the same shape.")
 
     mask = create_center_mask(target.shape, ratio=ignore_ratio)
     if ignore_ratio > 0:
@@ -153,7 +157,7 @@ def create_center_mask(shape: tuple[int, int], ratio: float) -> np.ndarray:
     Returns:
         np.ndarray: A binary mask of shape (h, w).
     """
-    h, w = shape
+    _h, w = shape
     mask = np.zeros(w, dtype=np.uint8)
     center_w = int(ratio * w)
     start = (w - center_w) // 2

@@ -26,8 +26,9 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--experiments_path",
         type=str,
-        required=True,
-        help="Path to the experiments path to store checkpoints",
+        default=None,
+        required=False,
+        help="Path to the experiments directory (required when --checkpoint is not set)",
     )
 
     parser.add_argument(
@@ -35,7 +36,30 @@ def create_parser() -> ArgumentParser:
         default=None,
         type=str,
         required=False,
-        help="Path to the model weights",
+        help="Path to SAM weights file or directory (auto-downloaded if omitted)",
+    )
+
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        type=str,
+        required=False,
+        help=(
+            "Hugging Face Hub repo id or local path to a released PanoSAMic checkpoint "
+            "(trainable weights only). When set, --experiments_path is not needed. "
+            "Requires --config_path and --vit_model to reconstruct the model."
+        ),
+    )
+
+    parser.add_argument(
+        "--subfolder",
+        default=None,
+        type=str,
+        required=False,
+        help=(
+            "Subfolder within the Hub repo where model.safetensors lives "
+            "(e.g. 'stanford2d3ds-vith-rgbdn'). Only used when --checkpoint is a Hub repo id."
+        ),
     )
 
     parser.add_argument(

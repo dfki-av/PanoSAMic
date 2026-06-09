@@ -3,6 +3,7 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![arXiv](https://img.shields.io/badge/arXiv-2601.07447-b31b1b.svg)](https://arxiv.org/abs/2601.07447)
+[![HuggingFace](https://img.shields.io/badge/🤗-dfki--av%2FPanoSAMic-yellow)](https://huggingface.co/dfki-av/PanoSAMic)
 
 PanoSAMic is a semantic segmentation model for panoramic images that integrates the pre-trained Segment Anything Model (SAM) encoder with multi-modal fusion capabilities. Existing image foundation models are not optimized for spherical images, having been trained primarily on perspective images. PanoSAMic addresses this by modifying the SAM encoder to output multi-stage features and introducing a novel spatio-modal fusion module that allows the model to select relevant modalities and features for different areas of the input.
 
@@ -12,25 +13,27 @@ Our semantic decoder uses spherical attention and dual view fusion to overcome t
 
 ## Installation
 
-1.  **Download Weights:**
-    Please download the official pretrained weights from the [original SAM repository](https://github.com/facebookresearch/segment-anything#model-checkpoints).
-
-    * `sam_vit_h_4b8939.pth`
-    * `sam_vit_l_0b3195.pth`
-    * `sam_vit_b_01ec64.pth`
-
-2. Clone the repository, install the depedencies, and link the weights dir
+1. Clone the repository and install dependencies:
 
     ```shell
-    $ git clone git@github.com:dfki-av/PanoSAMic.git
-
-    $ cd PanoSAMic
-    $ uv sync
-
-    $ ln -s /path/to/sam/weights/* sam_weights/
+    git clone git@github.com:dfki-av/PanoSAMic.git
+    cd PanoSAMic
+    uv sync
     ```
 
-Instead of linking, you can also directly put the weights in `sam_weights` directory.
+2. **SAM backbone weights** — choose one option:
+
+    - **Auto-download (recommended):** pass `--sam_weights_path` to any script and
+      the weights are fetched from Meta's servers on first use and cached under
+      `~/.cache/panosamic/sam/`.
+
+    - **Manual download:** grab the weights from the
+      [SAM repository](https://github.com/facebookresearch/segment-anything#model-checkpoints)
+      and place or symlink them in `sam_weights/`:
+
+      ```shell
+      ln -s /path/to/sam/weights/* sam_weights/
+      ```
 
 ## Usage
 
@@ -63,7 +66,7 @@ python panosamic/evaluation/train.py \
 
 ### Evaluation
 
-Evaluate a trained model:
+Evaluate a local training run (full checkpoint from `./experiments`):
 
 ```shell
 python panosamic/evaluation/evaluate.py \
@@ -77,6 +80,32 @@ python panosamic/evaluation/evaluate.py \
     --num_gpus 1 \
     --workers_per_gpu 2
 ```
+
+### Evaluate from a released checkpoint
+
+Reproduce paper results directly from the Hub (no local training run needed).
+The frozen SAM backbone is fetched automatically if `--sam_weights_path` is
+omitted:
+
+```shell
+python panosamic/evaluation/evaluate.py \
+    --dataset_path /path/to/processed/dataset \
+    --config_path config/config_stanford2d3ds_dv.json \
+    --checkpoint dfki-av/PanoSAMic \
+    --subfolder stanford2d3ds-vith-rgbdn-fold1 \
+    --sam_weights_path ./sam_weights \
+    --dataset stanford2d3ds \
+    --fold 1 \
+    --vit_model vit_h \
+    --modalities image,depth,normals \
+    --num_gpus 1
+```
+
+`--checkpoint` also accepts a local path to a `model.safetensors` file or a
+directory containing one (e.g. exported via `scripts/export_checkpoint_for_hub.py`).
+
+See [`MODEL_CARD.md`](MODEL_CARD.md) for the full checkpoint table and the
+numbers each checkpoint reproduces.
 
 ### Configuration Files
 

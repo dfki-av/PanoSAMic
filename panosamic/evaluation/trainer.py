@@ -4,10 +4,12 @@ Author: Mahdi Chamseddine
 
 # from math import sqrt
 from pathlib import Path
+from typing import cast
 
 import pytorch_optimizer
 import torch
 import torch.distributed as dist
+import torch.nn as nn
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -164,7 +166,7 @@ class PanoSAMicTrainer:
             if isinstance(self.model, (DataParallel, DistributedDataParallel)):
                 # this is a little hack to make loading weights work with
                 # code that does not know about DDP training
-                model_state = self.model.module.state_dict()
+                model_state = cast(nn.Module, self.model.module).state_dict()
             else:
                 model_state = self.model.state_dict()
             data = {
@@ -360,7 +362,9 @@ class PanoSAMicTrainer:
 
                 class_miou = {
                     name: torch.tensor([iou], device=iou_per_class.device)
-                    for name, iou in zip(self.dataset.CLASS_NAMES, iou_per_class)
+                    for name, iou in zip(
+                        self.dataset.CLASS_NAMES, iou_per_class, strict=False
+                    )
                 }
 
                 avg_loss = self.dh.move_to_cpu(avg_loss)

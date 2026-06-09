@@ -24,7 +24,7 @@ def count_params(model: nn.Module, verbose: bool = True) -> dict[str, int]:
         print(f"Total parameters:      {total_params:>15,}")
         print(f"Trainable parameters:  {trainable_params:>15,}")
         print(f"Frozen parameters:     {frozen_params:>15,}")
-        print(f"Trainable ratio:       {trainable_params/total_params*100:>14.2f}%")
+        print(f"Trainable ratio:       {trainable_params / total_params * 100:>14.2f}%")
 
     return {
         "total": total_params,
@@ -65,7 +65,7 @@ def count_flops(
     if n_modalities > 2:
         input_dict["normals"] = torch.zeros(3, 512, 1024, device=device)
 
-    flops = FlopCountAnalysis(model.eval(), [input_dict])  # type: ignore
+    flops = FlopCountAnalysis(model.eval(), [input_dict])
     total_flops = flops.total()
     gflops = total_flops / 1e9
 

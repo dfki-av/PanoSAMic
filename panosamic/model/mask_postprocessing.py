@@ -34,7 +34,7 @@ def connected_components_torch(mask: torch.Tensor) -> tuple[torch.Tensor, int]:
         - labeled_mask: Labeled mask with component IDs, shape (H, W)
         - num_components: Number of connected components
     """
-    H, W = mask.shape
+    _H, _W = mask.shape
     labeled = torch.zeros_like(mask, dtype=torch.int32)
     current_label = 0
 
@@ -252,8 +252,8 @@ def postprocess_instances(
         del masks_stable
     else:
         # Use pre-computed binary masks
-        masks_nms = masks_binary[keep_indices]  # type: ignore
-        del masks_binary, masks_stable  # type: ignore
+        masks_nms = masks_binary[keep_indices]
+        del masks_binary, masks_stable
 
     iou_predictions_nms = iou_predictions_stable[keep_indices]
     stability_scores_nms = stability_scores_stable[keep_indices]

@@ -31,7 +31,7 @@ class PanoSAMicEvaluator:
         self,
         distributed_helper: DistributedHandler,
         model: PanoSAMic,
-        model_path: Path,
+        model_path: Path | None,
         dataset: BaseDataset,
         batch_size: int,
         num_gpus: int,
@@ -65,6 +65,10 @@ class PanoSAMicEvaluator:
             self.colors = np.load(color_file)
 
     def load_checkpoint(self):
+        if self.model_path is None:
+            raise RuntimeError(
+                "No model_path set; model was already loaded externally."
+            )
         self.dh.print(f"Loading weights from: {self.model_path}")
 
         checkpoint = self.dh.load_state(self.model_path)
@@ -142,7 +146,9 @@ class PanoSAMicEvaluator:
 
                 class_miou = {
                     name: torch.tensor([iou], device=iou_per_class.device)
-                    for name, iou in zip(self.dataset.CLASS_NAMES, iou_per_class)
+                    for name, iou in zip(
+                        self.dataset.CLASS_NAMES, iou_per_class, strict=False
+                    )
                 }
 
                 avg_loss = self.dh.move_to_cpu(avg_loss)

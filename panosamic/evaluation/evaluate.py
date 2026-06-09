@@ -6,14 +6,12 @@ import os
 import traceback
 from pathlib import Path
 
-import torch
-
 from panosamic.datasets import build_dataset
 from panosamic.evaluation.evaluator import PanoSAMicEvaluator
 from panosamic.evaluation.utils.config import generate_configs
 from panosamic.evaluation.utils.distributed_handler import DistributedHandler
 from panosamic.evaluation.utils.parser import create_parser
-from panosamic.model import panosamic_builder
+from panosamic.model import PanoSAMic, panosamic_builder
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -43,32 +41,53 @@ def main() -> None:
         test_mode=True,
     )
 
-    model: torch.nn.Module = panosamic_builder(
-        config=model_config,
-        num_classes=dataset.NUM_CLASSES,
-        freeze_encoder=True,
-    )
+    # --- checkpoint path: released Hub/local checkpoint takes priority ---
+    if args.checkpoint:
+        model = PanoSAMic.from_pretrained_panosamic(
+            args.checkpoint,
+            sam_weights_path=platform_config.sam_weights_path,
+            vit_model=model_config.vit_model,
+            config_path=platform_config.config_path,
+            num_classes=dataset.NUM_CLASSES,
+            subfolder=args.subfolder,
+            modalities=model_config.modalities,
+        )
+        MODEL_PATH = None
+        CHECKPOINT_PATH = (
+            Path(args.checkpoint) if Path(args.checkpoint).exists() else None
+        )
+    else:
+        if not platform_config.experiments_path:
+            raise ValueError(
+                "--experiments_path is required when --checkpoint is not set"
+            )
 
-    CONFIG_PATH = Path(platform_config.config_path)
-    EXPERIMENTS_PATH = Path(platform_config.experiments_path)
-    if EXPERIMENTS_PATH.name != training_config.dataset_name:
-        EXPERIMENTS_PATH = EXPERIMENTS_PATH / training_config.dataset_name
+        model = panosamic_builder(
+            config=model_config,
+            num_classes=dataset.NUM_CLASSES,
+            freeze_encoder=True,
+        )
 
-    EXPERIMENT_ID = (
-        ""
-        + f"{CONFIG_PATH.stem}"
-        + f"_F{training_config.fold}"
-        + f"_V{model_config.vit_model[-1]}"
-        + f"_M{len(model_config.modalities)}"
-    )
+        CONFIG_PATH = Path(platform_config.config_path)
+        EXPERIMENTS_PATH = Path(platform_config.experiments_path)
+        if EXPERIMENTS_PATH.name != training_config.dataset_name:
+            EXPERIMENTS_PATH = EXPERIMENTS_PATH / training_config.dataset_name
 
-    CHECKPOINT_PATH = get_checkpoint_path(path=EXPERIMENTS_PATH, id=EXPERIMENT_ID)
-    if not CHECKPOINT_PATH:
-        return
+        EXPERIMENT_ID = (
+            ""
+            + f"{CONFIG_PATH.stem}"
+            + f"_F{training_config.fold}"
+            + f"_V{model_config.vit_model[-1]}"
+            + f"_M{len(model_config.modalities)}"
+        )
 
-    MODEL_PATH = CHECKPOINT_PATH / "model_best.pth"
-    if not (MODEL_PATH and MODEL_PATH.exists()):
-        return
+        CHECKPOINT_PATH = get_checkpoint_path(path=EXPERIMENTS_PATH, id=EXPERIMENT_ID)
+        if not CHECKPOINT_PATH:
+            return
+
+        MODEL_PATH = CHECKPOINT_PATH / "model_best.pth"
+        if not MODEL_PATH.exists():
+            return
 
     # Create the DistributedHelper as late as possible to avoid handling process group closing for earlier exceptions
     dh = DistributedHandler(platform_config.num_gpus)
@@ -83,9 +102,10 @@ def main() -> None:
             num_gpus=platform_config.num_gpus,
             workers_per_gpu=platform_config.workers_per_gpu,
         )
-        evaluator.load_checkpoint()
+        if not args.checkpoint:
+            evaluator.load_checkpoint()
 
-        epoch = evaluator.epoch
+        epoch = evaluator.epoch if not args.checkpoint else -1
         miou, macc, _ = evaluator.eval_one_epoch(epoch=epoch)
 
         print_miou = f"[IoU: Ep {epoch: >2}] {miou * 100:.2f}%"
@@ -94,19 +114,17 @@ def main() -> None:
         evaluator.dh.print(print_miou + "\n" + print_macc)
 
     except Exception as e:
-        log_file = CHECKPOINT_PATH / f"rank_{dh.rank}_err.log"
+        log_file = (
+            (CHECKPOINT_PATH / f"rank_{dh.rank}_err.log")
+            if CHECKPOINT_PATH
+            else Path(f"rank_{dh.rank}_err.log")
+        )
         error_str = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         if dh.is_distributed:
-            # If distributed training, write errors to log files
-            dh.print(
-                ""
-                + "Logging exceptions to disk in:\n"
-                + f"{CHECKPOINT_PATH.absolute()}"
-            )
+            dh.print("" + "Logging exceptions to disk in:\n" + f"{log_file.absolute()}")
             with open(log_file, "w") as f:
                 f.write(error_str)
         else:
-            # Else print errors to console
             dh.print(error_str)
 
     finally:

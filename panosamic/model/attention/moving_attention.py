@@ -16,7 +16,10 @@ class MovingAttention(nn.Module):
         aggregation: str = "none",
     ) -> None:
         super().__init__()
-        assert aggregation in ("none", "mean", "max")
+        if aggregation not in ("none", "mean", "max"):
+            raise ValueError(
+                f"{aggregation!r} is not a valid aggregation ('none', 'mean', 'max')"
+            )
 
         self.att_layer = att_layer
         self.window_size = window_size

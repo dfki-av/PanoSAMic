@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size: int = 5) -> None:
-        super(SpatialAttention, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(2, 1, kernel_size, padding=kernel_size // 2, bias=False)
 
     def forward(

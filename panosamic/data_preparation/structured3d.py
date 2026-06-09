@@ -98,9 +98,10 @@ def process_sample(
     input_sizes.append(semantics.size)
 
     input_sizes = set(input_sizes)
-    assert len(input_sizes) == 1, (
-        f"Dimensions of input images do not match in sample: {scene_pano_dir.name}/{sample_name}"
-    )
+    if len(input_sizes) != 1:
+        raise ValueError(
+            f"Dimensions of input images do not match in sample: {scene_pano_dir.name}/{sample_name}"
+        )
 
     depth_mask = Image.fromarray(  # 0 indicates no reading
         np.array(depth, dtype=np.uint16) != 0
@@ -134,7 +135,7 @@ def process_sample(
         # Compute statistics of the data
         masked_depth = np.ma.array(depth_m, mask=np.array(depth_mask) == 0)
         masked_depth = masked_depth.compressed()
-        max_depth = int(round(np.iinfo(np.uint16).max))
+        max_depth = round(np.iinfo(np.uint16).max)
         depth_hist, bin_edges = np.histogram(
             masked_depth, bins=max_depth, range=(0, max_depth)
         )
@@ -180,7 +181,9 @@ def main():
         except ImportError:
             import warnings
 
-            warnings.warn("Matplotlib must be installed for plotting histograms!")
+            warnings.warn(
+                "Matplotlib must be installed for plotting histograms!", stacklevel=2
+            )
             print("Proceeding without plotting...")
             args.debug = False
 
@@ -190,7 +193,8 @@ def main():
     dir_contents = [d.name for d in dataset_dir.iterdir() if d.is_dir()]
     scene_list = [d for d in dir_contents if "scene_" in d]
     scene_list.sort()  # Keep the areas sorted
-    assert scene_list, f"No scenes were found in {dataset_dir}"
+    if not scene_list:
+        raise FileNotFoundError(f"No scenes were found in {dataset_dir}")
     # assert "assets" in dir_contents, f"Missing 'assets' directory in {dataset_dir}"
 
     output_dir = Path(args.output_root)
@@ -205,7 +209,7 @@ def main():
     # (dataset_dir / "assets").copy_into(output_dir, dirs_exist_ok=True)
     copytree(dataset_dir / "assets", output_dir / "assets", dirs_exist_ok=True)
 
-    with open(output_dir / "assets" / "broken_files.json", "r") as fp:
+    with open(output_dir / "assets" / "broken_files.json") as fp:
         corrupted_samples = json.load(fp)
     corrupted_samples = [item for item in corrupted_samples if "panorama/full" in item]
 
@@ -224,7 +228,7 @@ def main():
             json.dump(scene_dict, fp)
     else:
         print("-- Reading file names: loading cached names")
-        with open(cache_file, "r") as fp:
+        with open(cache_file) as fp:
             scene_dict = json.load(fp)
 
     depth_hist_dict = {}
@@ -259,7 +263,7 @@ def main():
 
         if args.debug and save_depth_stats:
             plot_histogram(
-                plt,  # type:ignore
+                plt,
                 depth_hist_dict[scene][0],
                 depth_hist_dict[scene][1][:-1],
                 f"Histogram of depths in {scene}",
@@ -275,7 +279,7 @@ def main():
                     depth_hist = value
 
             plot_histogram(
-                plt,  # type:ignore
+                plt,
                 depth_hist[0],
                 depth_hist[1][:-1],
                 "Histogram of depths in all areas",

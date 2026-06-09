@@ -5,7 +5,7 @@ Author: Mahdi Chamseddine
 import abc
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ class BaseDataset(Dataset):
     CLASS_NAMES: tuple[str, ...]
     NUM_CLASSES: int
 
-    CACHE_FILES = {  # Data cache files to speed up processing
+    CACHE_FILES: ClassVar[dict[str, str]] = {  # Data cache files to speed up processing
         "file_names": "cache_samples_file_names.json",
         "area_stats": "cache_area_depth_statistics.json",
         "split_stats": "cache_splits_depth_statistics.json",
@@ -44,14 +44,16 @@ class BaseDataset(Dataset):
         super().__init__()
 
         # Sanity checks
-        assert depth_inlier_ratio in self.D_INLIER_RATIOS, (
-            f"inlier_ratio must be one of {self.D_INLIER_RATIOS}"
-        )
+        if depth_inlier_ratio not in self.D_INLIER_RATIOS:
+            raise ValueError(f"inlier_ratio must be one of {self.D_INLIER_RATIOS}")
 
-        assert oversample[0] >= 0, f"Oversampling {oversample[0]} must be >= 0"
+        if oversample[0] < 0:
+            raise ValueError(f"Oversampling {oversample[0]} must be >= 0")
         if oversample[0] > 0:
-            assert compute_weights, "oversampling > 0: set compute_weights to True"
-            assert oversample[1], "oversampling > 0: class list can't be empty"
+            if not compute_weights:
+                raise ValueError("oversampling > 0: set compute_weights to True")
+            if not oversample[1]:
+                raise ValueError("oversampling > 0: class list can't be empty")
 
         self.dataset_path = dataset_path
         self.eval_mode = eval_mode
@@ -84,9 +86,9 @@ class BaseDataset(Dataset):
         return len(self.sample_list)
 
     def __getitem__(
-        self, idx: int
+        self, index: int
     ) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
-        image, depth, normals, instances, semantics = self._load_sample(idx)
+        image, depth, normals, instances, semantics = self._load_sample(index)
 
         if self.mask_black:
             where_black = image.sum(-1) == 0
@@ -142,7 +144,7 @@ class BaseDataset(Dataset):
         area_dict = None
         if sample_name_cache.exists():
             # Cache file found, generating the list from the input file
-            with open(sample_name_cache, "r") as f:
+            with open(sample_name_cache) as f:
                 area_dict = json.load(f)
 
         for area in self.input_areas:
@@ -158,7 +160,8 @@ class BaseDataset(Dataset):
                     [frame for frame in area_path.iterdir() if frame.is_dir()]
                 )
 
-        assert sample_list, "No files were found, check dataset path."
+        if not sample_list:
+            raise FileNotFoundError("No files were found, check dataset path.")
 
         return sample_list
 
@@ -272,7 +275,7 @@ class BaseDataset(Dataset):
         area_depth_cache = self.dataset_path / self.CACHE_FILES["area_stats"]
         depth_hist_dict = None
         if area_depth_cache.exists():
-            with open(area_depth_cache, "r") as f:
+            with open(area_depth_cache) as f:
                 depth_hist_dict = json.load(f)
         if not depth_hist_dict:
             raise FileNotFoundError(
@@ -320,7 +323,7 @@ def load_cached(
     cache_file: Path, fold_n: int
 ) -> tuple[list[float] | None, dict[Any, list[float]]]:
     if cache_file.exists():
-        with open(cache_file, "r") as f:
+        with open(cache_file) as f:
             cache_content = json.load(f)
 
         if isinstance(cache_content, list):

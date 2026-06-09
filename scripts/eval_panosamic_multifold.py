@@ -51,7 +51,7 @@ def _edge_mask(height: int, width: int, side_frac: float, device: torch.device):
     """Boolean mask keeping left/right strips (side_frac of width each)."""
     if side_frac <= 0 or side_frac >= 0.5:
         return torch.ones((height, width), device=device, dtype=torch.bool)
-    side_w = max(1, int(round(side_frac * width)))
+    side_w = max(1, round(side_frac * width))
     mask = torch.zeros((height, width), device=device, dtype=torch.bool)
     mask[:, :side_w] = True
     mask[:, width - side_w :] = True
@@ -126,6 +126,8 @@ def _eval_fold(
     )
 
     config_path = Path(platform_config.config_path)
+    if platform_config.experiments_path is None:
+        raise ValueError("--experiments_path is required for multifold evaluation")
     experiments_path = Path(platform_config.experiments_path)
     if experiments_path.name != training_config.dataset_name:
         experiments_path = experiments_path / training_config.dataset_name
@@ -311,13 +313,13 @@ def _eval_fold(
     for frac, acc in edge_accumulators.items():
         edge_iou = acc["inter"] / acc["union"]
         edge_acc = acc["inter"] / acc["target"]
-        key = f"{int(round(frac * 100))}pct_per_side"
+        key = f"{round(frac * 100)}pct_per_side"
         edge_results[key] = {
             "miou": torch.nanmean(edge_iou).item(),
             "macc": torch.nanmean(edge_acc).item(),
             "iou_per_class": {
                 name: torch.nan_to_num(val, nan=float("nan")).item()
-                for name, val in zip(dataset.CLASS_NAMES, edge_iou)
+                for name, val in zip(dataset.CLASS_NAMES, edge_iou, strict=False)
             },
         }
 
@@ -328,7 +330,7 @@ def _eval_fold(
         "macc": macc,
         "iou_per_class": {
             name: torch.nan_to_num(val, nan=float("nan")).item()
-            for name, val in zip(dataset.CLASS_NAMES, iou_per_class)
+            for name, val in zip(dataset.CLASS_NAMES, iou_per_class, strict=False)
         },
         "frame_metrics": frame_metrics,
         "edge_metrics": edge_results,

@@ -64,6 +64,8 @@ def main() -> None:
     )
 
     CONFIG_PATH = Path(platform_config.config_path)
+    if platform_config.experiments_path is None:
+        raise ValueError("--experiments_path is required for training")
     EXPERIMENTS_PATH = Path(platform_config.experiments_path)
     if EXPERIMENTS_PATH.name != training_config.dataset_name:
         EXPERIMENTS_PATH = EXPERIMENTS_PATH / training_config.dataset_name
@@ -97,11 +99,11 @@ def main() -> None:
         CHECKPOINT_PATH = EXPERIMENTS_PATH / f"{timestamp}_{EXPERIMENT_ID}"
 
         MODEL_PATH = next(SAM_PATH.glob(f"*_{model_config.vit_model}_*.pth"), None)
-        assert MODEL_PATH, (
-            ""
-            + "No SAM weights for the chosen ViT size were found in: "
-            + f"{platform_config.sam_weights_path}"
-        )
+        if not MODEL_PATH:
+            raise FileNotFoundError(
+                f"No SAM weights for {model_config.vit_model!r} found in: "
+                f"{platform_config.sam_weights_path}"
+            )
 
     temp_file = (
         Path(os.environ["HOME"])

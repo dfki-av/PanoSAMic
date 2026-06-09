@@ -13,8 +13,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import torch
@@ -29,7 +29,7 @@ from panosamic.evaluation.metrics import intersection_and_union_gpu
 
 def _ensure_sam3_import(repo_hint: Path | None) -> None:
     try:
-        import sam3  # noqa: F401 # type: ignore
+        import sam3  # type: ignore
 
         return
     except ImportError:
@@ -289,7 +289,7 @@ def _evaluate_fold(
         "macc": torch.nanmean(acc_per_class).item(),
         "iou_per_class": {
             name: torch.nan_to_num(val, nan=float("nan")).item()
-            for name, val in zip(class_names, iou_per_class)
+            for name, val in zip(class_names, iou_per_class, strict=False)
         },
         "frame_metrics": frame_metrics,
     }

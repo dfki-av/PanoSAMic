@@ -222,6 +222,7 @@ __marimo__/
 # Project Specific
 experiments/*
 visualizations/*
+exports/
 
 *.png
 *.webp

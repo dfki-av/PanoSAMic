@@ -76,11 +76,12 @@ def augment_image(
     if probabilities is None:
         probabilities = tuple([1 / (n_aug + 1) for _ in range(n_aug)])
 
-    assert n_aug == len(probabilities), (
-        "Augmentation probabilities must be the same length as the augmentations."
-    )
+    if n_aug != len(probabilities):
+        raise ValueError(
+            "Augmentation probabilities must be the same length as the augmentations."
+        )
 
-    for p, fn in zip(probabilities, augmentations):
+    for p, fn in zip(probabilities, augmentations, strict=False):
         if torch.rand(1) > p:
             continue
         sample_data, sample_labels = fn(sample_data, sample_labels)

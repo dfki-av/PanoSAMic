@@ -4,7 +4,7 @@ Author: Mahdi Chamseddine
 
 import os
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, overload
 
 import torch
 import torch.distributed as dist
@@ -63,35 +63,67 @@ class DistributedHandler:
             )
         return model
 
+    @overload
+    def move_to_gpu(
+        self, data: torch.Tensor, keys: list[str] | None = None
+    ) -> torch.Tensor: ...
+    @overload
+    def move_to_gpu(
+        self, data: list[torch.Tensor], keys: list[str] | None = None
+    ) -> list[torch.Tensor]: ...
+    @overload
+    def move_to_gpu(
+        self, data: dict[str, torch.Tensor], keys: list[str] | None = None
+    ) -> dict[str, torch.Tensor]: ...
+    @overload
+    def move_to_gpu(
+        self, data: list[dict[str, torch.Tensor]], keys: list[str] | None = None
+    ) -> list[dict[str, torch.Tensor]]: ...
     def move_to_gpu(self, data: T, keys: list[str] | None = None) -> T:
         """Moves data to the GPU, can handle tensors, list of tensors, dict of tensors,
         and list of dict of tensors"""
         if self.has_cuda:
             if isinstance(data, torch.Tensor):
-                data = data.to(self.local_rank)
+                data = data.to(self.local_rank)  # ty: ignore[invalid-assignment]
             elif isinstance(data, dict):
                 if keys is None:
                     keys = list(data.keys())
                 for key in keys:
-                    data[key] = self.move_to_gpu(data[key], None)
+                    data[key] = self.move_to_gpu(data[key], None)  # ty: ignore[invalid-argument-type, invalid-assignment]
             elif isinstance(data, list):
-                data = [self.move_to_gpu(item, keys) for item in data]  # type:ignore
+                data = [self.move_to_gpu(item, keys) for item in data]  # ty: ignore[invalid-assignment]
             else:
                 raise NotImplementedError("Input type unknown.")
         return data
 
+    @overload
+    def move_to_cpu(
+        self, data: torch.Tensor, keys: list[str] | None = None
+    ) -> torch.Tensor: ...
+    @overload
+    def move_to_cpu(
+        self, data: list[torch.Tensor], keys: list[str] | None = None
+    ) -> list[torch.Tensor]: ...
+    @overload
+    def move_to_cpu(
+        self, data: dict[str, torch.Tensor], keys: list[str] | None = None
+    ) -> dict[str, torch.Tensor]: ...
+    @overload
+    def move_to_cpu(
+        self, data: list[dict[str, torch.Tensor]], keys: list[str] | None = None
+    ) -> list[dict[str, torch.Tensor]]: ...
     def move_to_cpu(self, data: T, keys: list[str] | None = None) -> T:
         """Moves data to the CPU, can handle tensors, list of tensors, dict of tensors,
         and list of dict of tensors"""
         if isinstance(data, torch.Tensor):
-            data = data.cpu()
+            data = data.cpu()  # ty: ignore[invalid-assignment]
         elif isinstance(data, dict):
             if keys is None:
                 keys = list(data.keys())
             for key in keys:
-                data[key] = self.move_to_cpu(data[key], None)
+                data[key] = self.move_to_cpu(data[key], None)  # ty: ignore[invalid-argument-type, invalid-assignment]
         elif isinstance(data, list):
-            data = [self.move_to_cpu(item, keys) for item in data]  # type:ignore
+            data = [self.move_to_cpu(item, keys) for item in data]  # ty: ignore[invalid-assignment]
         else:
             raise NotImplementedError("Input type unknown.")
         return data

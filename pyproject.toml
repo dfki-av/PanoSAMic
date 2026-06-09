@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "PanoSAMic"
-version         = "2.0"
+version         = "2.1"
 requires-python = ">=3.11"                                                                                                          # measured using vermin
 readme          = "README.md"
 description     = "PanoSAMic: Semantic segmentation for panoramic images using SAM with multi-modal fusion and spherical attention"
@@ -27,39 +27,38 @@ classifiers = [
 ]
 
 dependencies = [
+    "huggingface-hub",
+    "pytorch-optimizer",
+    "safetensors",
+    "segment-anything",
+    "standard-imghdr",   # Temporary fix for tensorboard with python 3.13
+    "tensorboard",
     "torch",
     "torchvision",
     "torchaudio",
-    "segment-anything",
-    "pytorch-optimizer",
-    "tensorboard",
-    "standard-imghdr",   # Temporary fix for tensorboard with python 3.13
     "tqdm",
 ]
+
+[dependency-groups]
+dev = ["pre-commit>=4.6.0", "pytest>=9.0.3", "ruff>=0.15.16", "ty>=0.0.46"]
 
 [project.urls]
 Homepage   = "https://github.com/dfki-av/PanoSAMic"
 Repository = "https://github.com/dfki-av/PanoSAMic"
 Issues     = "https://github.com/dfki-av/PanoSAMic/issues"
 
-[tool.uv.sources]
-# potentially fork segment-anything to maintain compatibility
-segment-anything = { git = "https://github.com/facebookresearch/segment-anything.git" }
-# sam3             = { git = "https://github.com/facebookresearch/sam3.git" }
-
 [project.optional-dependencies]
 flops = ["fvcore"] # to measure model flops
 sam3 = [ # to run sam3 experiments
-    "timm",
-    "ftfy",
-    "regex",
-    "typing-extensions",
-    "iopath",
-    "huggingface-hub",
-    "einops",
     "decord",
-    "pycocotools",
+    "einops",
+    "ftfy",
+    "iopath",
     "psutil",
+    "pycocotools",
+    "regex",
+    "timm",
+    "typing-extensions",
 ]
 
 [tool.setuptools.packages.find]
@@ -72,3 +71,29 @@ indent-width = 4
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line too long — handled by formatter
+    "B008", # do not perform function calls in default arguments (common in argparse)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["B007"] # loop variable not used in loop body
+
+[tool.ty.environment]
+python = ".venv"
+
+[tool.uv.sources]
+# potentially fork segment-anything to maintain compatibility
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything.git" }
+# sam3             = { git = "https://github.com/facebookresearch/sam3.git" }

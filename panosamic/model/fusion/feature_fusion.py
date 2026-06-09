@@ -49,7 +49,7 @@ class FeatureFusion(nn.Module):
     ) -> torch.Tensor:
         fused_output = [
             block(encoder_branch, feed_forward=True)
-            for encoder_branch, block in zip(inputs, self.fusion_blocks)
+            for encoder_branch, block in zip(inputs, self.fusion_blocks, strict=False)
         ]
         x = torch.cat(fused_output, dim=1)
         return x

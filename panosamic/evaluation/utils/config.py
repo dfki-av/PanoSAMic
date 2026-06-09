@@ -12,7 +12,7 @@ from typing import Any, Literal
 class PlatformConfig:
     dataset_path: str
     config_path: str
-    experiments_path: str
+    experiments_path: str | None
     sam_weights_path: str
     workers_per_gpu: int = 2
     num_gpus: int = 1
@@ -55,7 +55,7 @@ class ModelConfig:
 def generate_configs(
     args: Namespace,
 ) -> tuple[PlatformConfig, TrainingConfig, ModelConfig]:
-    with open(args.config_path, "r") as fp:
+    with open(args.config_path) as fp:
         config_file = json.load(fp)
 
     platform_config = PlatformConfig(

@@ -20,7 +20,6 @@ class Stanford2d3dsDataset(BaseDataset):
     CLASS_NAMES = (
         "beam", "board", "bookcase", "ceiling", "chair", "clutter",
         "column", "door", "floor", "sofa", "table", "wall", "window"
-        # fmt: on
     )
     NUM_CLASSES = len(CLASS_NAMES)
 
@@ -132,12 +131,12 @@ def load_semantic_labels(data_path: Path) -> tuple[np.ndarray, np.ndarray]:
 
     # Load semantic classes of all instances
     path = data_path / "assets" / "semantic_labels.json"
-    with open(path, "r") as f:
+    with open(path) as f:
         instance_classes = [name.split("_")[0] for name in json.load(f)] + ["<UNK>"]
 
     # Load numerical label of semantic classes
     path = data_path / "assets" / "name2label.json"
-    with open(path, "r") as f:
+    with open(path) as f:
         class_labels = json.load(f)
 
     # Load colors
@@ -162,7 +161,7 @@ def main():
     print(f"Dataset length: {len(dataset)}")
 
     Path("temp").mkdir(parents=True, exist_ok=True)
-    for input_dict, label_dict in dataset:
+    for input_dict, _label_dict in dataset:
         if np.random.rand() > 0.05:
             continue
         print("\n".join(str(v.shape) for v in input_dict.values()))
