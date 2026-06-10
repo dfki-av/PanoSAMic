@@ -16,6 +16,7 @@ from panosamic.evaluation.metrics import compute_metrics
 from panosamic.evaluation.utils.data import collate_as_lists
 from panosamic.evaluation.utils.distributed_handler import DistributedHandler
 from panosamic.model import PanoSAMic
+from panosamic.model.instance_semantic_fusion import refine_semantic_with_instances
 
 
 class PanoSAMicEvaluator:
@@ -96,7 +97,7 @@ class PanoSAMicEvaluator:
         area_union = self.dh.move_to_gpu(area_union)
         area_target = self.dh.move_to_gpu(area_target)
         with (
-            torch.no_grad(),
+            torch.inference_mode(),
             tqdm(
                 total=length,
                 desc=f"[Val: Ep {epoch: >2}]{'': >15}",
@@ -111,6 +112,12 @@ class PanoSAMicEvaluator:
                 vinputs = self.dh.move_to_gpu(vinputs)
                 vlabels = self.dh.move_to_gpu(vlabels)
                 voutputs = self.model(vinputs)
+
+                for output in voutputs:
+                    if output["instance_masks"]:
+                        output["sem_preds"] = refine_semantic_with_instances(
+                            output["sem_preds"].squeeze(0), output["instance_masks"]
+                        ).unsqueeze(0)
 
                 metrics = compute_metrics(
                     pred_list=voutputs,

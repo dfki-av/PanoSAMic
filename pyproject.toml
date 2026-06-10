@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "PanoSAMic"
-version         = "2.1"
+version         = "2.2"
 requires-python = ">=3.11"                                                                                                          # measured using vermin
 readme          = "README.md"
 description     = "PanoSAMic: Semantic segmentation for panoramic images using SAM with multi-modal fusion and spherical attention"

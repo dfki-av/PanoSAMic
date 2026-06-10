@@ -4,6 +4,7 @@
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![arXiv](https://img.shields.io/badge/arXiv-2601.07447-b31b1b.svg)](https://arxiv.org/abs/2601.07447)
 [![HuggingFace](https://img.shields.io/badge/🤗-dfki--av%2FPanoSAMic-yellow)](https://huggingface.co/dfki-av/PanoSAMic)
+[![Space](https://img.shields.io/badge/🤗%20Space-Demo-blue)](https://huggingface.co/spaces/dfki-av/PanoSAMic-demo)
 
 PanoSAMic is a semantic segmentation model for panoramic images that integrates the pre-trained Segment Anything Model (SAM) encoder with multi-modal fusion capabilities. Existing image foundation models are not optimized for spherical images, having been trained primarily on perspective images. PanoSAMic addresses this by modifying the SAM encoder to output multi-stage features and introducing a novel spatio-modal fusion module that allows the model to select relevant modalities and features for different areas of the input.
 
@@ -12,6 +13,8 @@ Our semantic decoder uses spherical attention and dual view fusion to overcome t
 - **Matterport3D**: RGB and RGB-D modalities
 
 ## Installation
+
+**GPU requirements:** ≥16 GB VRAM for ViT-H inference · ≥24 GB for training
 
 1. Clone the repository and install dependencies:
 

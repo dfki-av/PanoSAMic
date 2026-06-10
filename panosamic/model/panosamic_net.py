@@ -27,7 +27,12 @@ from panosamic.model.prompt_validator import prompt_validator
 from panosamic.model.semantic_decoder import BaselineDecoder, ConvDecoder
 
 # Keys belonging to the frozen SAM backbone — never serialized for Hub release.
-_FROZEN_PREFIXES = ("image_encoder.", "prompt_encoder.", "mask_decoder.")
+_FROZEN_PREFIXES = (
+    "image_encoder.",
+    "prompt_encoder.",
+    "_cached_prompt_encoder.",  # alias for prompt_encoder, same weights
+    "mask_decoder.",
+)
 
 
 class PanoSAMic(
@@ -732,6 +737,7 @@ class PanoSAMic(
         num_classes: int,
         subfolder: str | None = None,
         modalities: tuple[str, ...] = ("image", "depth", "normals"),
+        semantic_only: bool = False,
         **_ignored: Any,  # absorb any future mixin kwargs we don't know about
     ) -> "PanoSAMic":
         """Load trainable weights from Hub or local path on top of a SAM backbone."""
@@ -783,7 +789,7 @@ class PanoSAMic(
         model_config = ModelConfig(
             vit_model=_vit_model,
             modalities=modalities,
-            semantic_only=True,
+            semantic_only=semantic_only,
             channel_attention=cfg.get("channel_attention"),
             spatial_attention=cfg.get("spatial_attention"),
             dual_view_fusion=cfg.get("dual_view_fusion", True),
