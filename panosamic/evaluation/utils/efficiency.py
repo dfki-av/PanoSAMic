@@ -45,7 +45,7 @@ def count_flops(
         model: PyTorch model to analyze
         n_modalities: Number of modalities (1=RGB, 2=RGBD, 3=RGBDN)
         verbose: If True, print the results
-        device: Device to run on ('cuda' or 'cpu')
+        device: Device to run on ('cuda', 'mps', or 'cpu')
 
     Returns:
         Dictionary with FLOP counts or None if fvcore not available

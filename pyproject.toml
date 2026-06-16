@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "PanoSAMic"
-version         = "2.2"
+version         = "2.3"
 requires-python = ">=3.11"                                                                                                          # measured using vermin
 readme          = "README.md"
 description     = "PanoSAMic: Semantic segmentation for panoramic images using SAM with multi-modal fusion and spherical attention"
 
-license = { text = "LICENSE" }
+license = { file = "LICENSE" }
 
 authors     = [{ name = "Mahdi Chamseddine", email = "mahdi.chamseddine@dfki.de" }]
 maintainers = [{ name = "Mahdi Chamseddine", email = "mahdi.chamseddine@dfki.de" }]
@@ -28,6 +28,8 @@ classifiers = [
 
 dependencies = [
     "huggingface-hub",
+    "numpy",
+    "Pillow",
     "pytorch-optimizer",
     "safetensors",
     "segment-anything",
@@ -35,7 +37,6 @@ dependencies = [
     "tensorboard",
     "torch",
     "torchvision",
-    "torchaudio",
     "tqdm",
 ]
 
@@ -48,18 +49,11 @@ Repository = "https://github.com/dfki-av/PanoSAMic"
 Issues     = "https://github.com/dfki-av/PanoSAMic/issues"
 
 [project.optional-dependencies]
-flops = ["fvcore"] # to measure model flops
-sam3 = [ # to run sam3 experiments
-    "decord",
-    "einops",
-    "ftfy",
-    "iopath",
-    "psutil",
-    "pycocotools",
-    "regex",
-    "timm",
-    "typing-extensions",
-]
+flops = ["fvcore"]       # to measure model flops
+sam3  = ["transformers"] # to run sam3 baseline experiments
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 include = ["panosamic*"]
@@ -74,17 +68,27 @@ quote-style = "double"
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "RUF", # ruff-specific rules
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "PERF", # perflint
+    "C4",   # flake8-comprehensions
+    "PLW",  # pylint warnings
+    "PLR1722", # sys-exit-alias
 ]
 ignore = [
-    "E501", # line too long — handled by formatter
-    "B008", # do not perform function calls in default arguments (common in argparse)
+    "E501",    # line too long — handled by formatter
+    "B008",    # do not perform function calls in default arguments (common in argparse)
+    "PLR0913", # too-many-arguments — common in model/training configs
+    "PLR0912", # too-many-branches — acceptable in research code
+    "PLR0915", # too-many-statements — acceptable in research code
+    "PLR2004", # magic-value-comparison — common in ML thresholds
+    "PLC0415", # import-not-at-top-level — deliberate lazy-import pattern
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -96,4 +100,3 @@ python = ".venv"
 [tool.uv.sources]
 # potentially fork segment-anything to maintain compatibility
 segment-anything = { git = "https://github.com/facebookresearch/segment-anything.git" }
-# sam3             = { git = "https://github.com/facebookresearch/sam3.git" }

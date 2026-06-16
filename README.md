@@ -14,7 +14,7 @@ Our semantic decoder uses spherical attention and dual view fusion to overcome t
 
 ## Installation
 
-**GPU requirements:** ≥16 GB VRAM for ViT-H inference · ≥24 GB for training
+**GPU requirements:** ≥16 GB VRAM for ViT-H inference · ≥24 GB for training · Apple Silicon (MPS) device support is included but has not been verified on physical hardware
 
 1. Clone the repository and install dependencies:
 
@@ -120,7 +120,7 @@ Configuration files in the [config/](config/) directory control model architectu
 
 ### SAM3 Baseline Evaluation
 
-For comparison with SAM3 baselines, install the optional SAM3 dependencies:
+For comparison with SAM3 baselines, install the optional SAM3 dependency:
 
 ```shell
 uv sync --extra sam3
@@ -136,7 +136,40 @@ DATASET_PATH=/path/to/processed/dataset ./scripts/run_sam3_eval_stanford2d3ds.sh
 DATASET_PATH=/path/to/processed/dataset ./scripts/run_sam3_eval_matterport3d.sh
 ```
 
-The SAM3 checkpoint will be automatically downloaded from HuggingFace to your cache directory on first run.
+The SAM3 model (`facebook/sam3`) is loaded via HuggingFace Transformers and downloaded automatically to your cache on first run.
+
+## Development
+
+### Running tests
+
+```shell
+# Full CPU test suite (no GPU required)
+uv run pytest tests/
+
+# Skip CUDA tests explicitly (e.g. when GPU is in use)
+uv run pytest tests/ --ignore=tests/model/smoke/test_cuda.py \
+    --ignore=tests/sam3/smoke/test_cuda.py \
+    --ignore=tests/sam3/outputs/test_cuda.py
+
+# Hub integration tests (downloads ~750 MB–1.5 GB from dfki-av/PanoSAMic)
+PANOSAMIC_HUB_TESTS=1 uv run pytest tests/model/test_hub.py -v
+```
+
+Hub tests are skipped by default to avoid network I/O in regular runs.
+Set `PANOSAMIC_HUB_TESTS=1` to verify that released checkpoints still load
+correctly and contain no SAM backbone weights.
+The checkpoint size reflects the trainable weights only (no SAM backbone):
+~367 M parameters, ~740 MB in bfloat16 or ~1.5 GB in float32.
+
+### Linting and type checking
+
+```shell
+uv run ruff check --fix   # lint with auto-fix
+uv run ruff format        # format
+uv run ty check           # type check
+```
+
+Pre-commit runs all three automatically on every commit.
 
 ## Data Preparation
 

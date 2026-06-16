@@ -143,7 +143,7 @@ class PanoSAMic(
         multimask_output: bool = True,
     ) -> list[dict[str, Any]]:
         if batched_prompts is None:
-            batched_prompts = list()
+            batched_prompts = []
         input_images, image_shapes = self.data_preparation_block(batched_input)
 
         encoder_output_list, encoder_branch_lists = self.image_encoder_block(
@@ -327,7 +327,7 @@ class PanoSAMic(
             List of merged mask lists, one per batch item
         """
         if batched_prompts is None:
-            batched_prompts = list()
+            batched_prompts = []
         if self.prompt_encoder is None or self.mask_decoder is None:
             return [[] for _ in image_shapes]
 
@@ -405,7 +405,7 @@ class PanoSAMic(
             List of merged mask lists, one per batch item
         """
         if batched_prompts is None:
-            batched_prompts = list()
+            batched_prompts = []
         if self.prompt_encoder is None or self.mask_decoder is None:
             return [[] for _ in image_shapes]
 
@@ -484,7 +484,7 @@ class PanoSAMic(
             List of mask lists, one per batch item
         """
         if batched_prompts is None:
-            batched_prompts = list()
+            batched_prompts = []
         prompt_encoder = (
             self.prompt_encoder if self.low_memory_mode else self._cached_prompt_encoder
         )
@@ -503,11 +503,11 @@ class PanoSAMic(
             batched_prompts = [{} for _ in range(len(image_shapes))]
 
         # For loop over all the batches
-        for prompt, embeddings, shape in zip(
+        for raw_prompt, embeddings, shape in zip(
             batched_prompts, image_embeddings, image_shapes, strict=False
         ):
             prompt, point_coords, point_labels = prompt_validator(
-                prompt, self.points_per_side, self.device, self.img_size
+                raw_prompt, self.points_per_side, self.device, self.img_size
             )
 
             # Process masks in streaming fashion to minimize peak memory

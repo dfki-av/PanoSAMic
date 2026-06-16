@@ -45,10 +45,7 @@ class DistributedHandler:
         self.is_master = self.rank == 0
 
     def load_state(self, check_point_path: Path):
-        if self.has_cuda:
-            map_location = f"cuda:{self.local_rank:d}"
-        else:
-            map_location = "cpu"
+        map_location = f"cuda:{self.local_rank:d}" if self.has_cuda else "cpu"
         state = torch.load(
             check_point_path, map_location=map_location, weights_only=True
         )
@@ -143,7 +140,7 @@ class DistributedHandler:
         if isinstance(values, torch.Tensor):
             dist.reduce(values, 0, reduction)
         else:
-            for key in values.keys():
+            for key in values:
                 dist.reduce(values[key], 0, reduction)
 
     def broadcast_value(self, value: torch.Tensor) -> None:

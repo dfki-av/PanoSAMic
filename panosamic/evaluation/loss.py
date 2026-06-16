@@ -128,7 +128,7 @@ class PanoSAMicLoss(nn.Module):
             self.w1, self.w2 = self.get_scheduled_weights(steps=steps)
 
         overall_loss = None
-        for loss in filter(None, losses):
+        for loss in (x for x in losses if x is not None):
             overall_loss = (
                 overall_loss + (loss * self.w2) if overall_loss else (loss * self.w1)
             )

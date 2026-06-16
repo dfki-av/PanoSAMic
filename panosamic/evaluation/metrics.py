@@ -74,12 +74,21 @@ def intersection_and_union_gpu(
     # Find intersection: pixels where prediction matches the target
     intersection = output[output == target]
 
-    # Calculate histogram counts for intersection, output, and target
+    # torch.histc is not supported on MPS; compute on CPU and move back.
+    device = output.device
+    ic = intersection.float().cpu()
+    oc = output.float().cpu()
+    tc = target.float().cpu()
+
     area_intersection = torch.histc(
-        intersection, bins=num_classes, min=0, max=num_classes - 1
+        ic, bins=num_classes, min=0, max=num_classes - 1
+    ).to(device)
+    area_output = torch.histc(oc, bins=num_classes, min=0, max=num_classes - 1).to(
+        device
     )
-    area_output = torch.histc(output, bins=num_classes, min=0, max=num_classes - 1)
-    area_target = torch.histc(target, bins=num_classes, min=0, max=num_classes - 1)
+    area_target = torch.histc(tc, bins=num_classes, min=0, max=num_classes - 1).to(
+        device
+    )
 
     # Union is the sum of output and target areas minus the intersection
     area_union = area_output + area_target - area_intersection
@@ -169,8 +178,14 @@ def create_center_mask(shape: tuple[int, int], ratio: float) -> np.ndarray:
 
 def main():
     # Simulated example tensors
-    output = torch.tensor([[0, 1, 2], [2, 1, 0]]).to("cuda")
-    target = torch.tensor([[0, 1, 1], [2, 1, 0]]).to("cuda")
+    if torch.cuda.is_available():
+        _dev = "cuda"
+    elif torch.backends.mps.is_available():
+        _dev = "mps"
+    else:
+        _dev = "cpu"
+    output = torch.tensor([[0, 1, 2], [2, 1, 0]]).to(_dev)
+    target = torch.tensor([[0, 1, 1], [2, 1, 0]]).to(_dev)
     num_classes = 3
 
     # Compute intersection and union

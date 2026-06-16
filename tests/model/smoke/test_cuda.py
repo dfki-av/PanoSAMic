@@ -1,10 +1,6 @@
-"""
-CUDA inference smoke tests.
+"""PanoSAMic CUDA forward-pass smoke tests."""
 
-All tests in this module are skipped when no GPU is available.
-They mirror the CPU tests in test_inference.py but run on CUDA and
-additionally assert that output tensors land on the GPU.
-"""
+from __future__ import annotations
 
 import tempfile
 from pathlib import Path
@@ -20,11 +16,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(scope="module")
 def baseline_model_cuda(baseline_model):
     return baseline_model.cuda()
@@ -33,11 +24,6 @@ def baseline_model_cuda(baseline_model):
 @pytest.fixture(scope="module")
 def full_model_cuda(full_model):
     return full_model.cuda()
-
-
-# ---------------------------------------------------------------------------
-# Forward pass — output on correct device, correct shape
-# ---------------------------------------------------------------------------
 
 
 @torch.no_grad()
@@ -67,16 +53,11 @@ def test_cuda_forward_batch_size_two(baseline_model_cuda):
         assert item["sem_preds"].shape[1] == NUM_CLASSES
 
 
-# ---------------------------------------------------------------------------
-# Save / reload — safetensors always written to CPU
-# ---------------------------------------------------------------------------
-
-
 def test_cuda_save_pretrained_backbone_free(baseline_model_cuda):
     with tempfile.TemporaryDirectory() as tmp:
         baseline_model_cuda.save_pretrained(tmp)
         sf = Path(tmp) / "model.safetensors"
-        assert sf.exists(), "model.safetensors not written"
+        assert sf.exists()
 
         from safetensors.torch import load_file
 
@@ -92,14 +73,9 @@ def test_cuda_save_reload_key_parity(baseline_model_cuda):
         from safetensors.torch import load_file
 
         ckpt = load_file(str(Path(tmp) / "model.safetensors"), device="cpu")
-
         trainable = {
             k: v.cpu() for k, v in baseline_model_cuda.trainable_state_dict().items()
         }
-        assert set(ckpt) == set(trainable), (
-            f"Key mismatch after CUDA reload.\n"
-            f"  Missing: {set(trainable) - set(ckpt)}\n"
-            f"  Extra:   {set(ckpt) - set(trainable)}"
-        )
+        assert set(ckpt) == set(trainable)
         for k in trainable:
-            assert ckpt[k].shape == trainable[k].shape, f"Shape mismatch for {k}"
+            assert ckpt[k].shape == trainable[k].shape

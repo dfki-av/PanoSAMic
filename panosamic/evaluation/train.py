@@ -4,6 +4,7 @@ Author: Mahdi Chamseddine
 
 import json
 import os
+import sys
 import traceback
 from dataclasses import asdict
 from datetime import datetime
@@ -133,10 +134,10 @@ def main() -> None:
                 dh.print(
                     "Efficiency computation is not implemented for distributed setup."
                 )
-                exit(1)
+                sys.exit(1)
             count_params(model=model)
             count_flops(model=model, n_modalities=len(model_config.modalities))
-            exit(0)
+            sys.exit(0)
 
         start_epoch = trainer.epoch
 
@@ -164,7 +165,7 @@ def main() -> None:
             if not time_sufficient.all():
                 # If there's not enough time left in a job then exit the training
                 trainer.dh.print("Stopping job due to insufficient time remaining")
-                exit(0)
+                sys.exit(0)
 
             start_time = perf_counter()
 
@@ -232,7 +233,7 @@ def main() -> None:
             # Else print errors to console
             dh.print(error_str)
 
-        exit(1)  # Exit with an error
+        sys.exit(1)  # Exit with an error
 
     finally:
         # Always close process group

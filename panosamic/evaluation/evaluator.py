@@ -52,7 +52,7 @@ class PanoSAMicEvaluator:
             ),
             num_workers=workers_per_gpu,
             collate_fn=collate_as_lists,
-            drop_last=False if num_gpus > 1 else True,
+            drop_last=not num_gpus > 1,
         )
 
         if self.dh.has_cuda:

@@ -8,9 +8,7 @@ import subprocess
 
 
 def is_slurm_job() -> bool:
-    if os.environ.get("SLURM_JOB_ID", None):
-        return True
-    return False
+    return bool(os.environ.get("SLURM_JOB_ID", None))
 
 
 def parse_slurm_time_left(time_str: str) -> float:
@@ -42,6 +40,7 @@ def job_time_left() -> float:
         shell=True,
         text=True,
         capture_output=True,
+        check=False,
     )
 
     return parse_slurm_time_left(result.stdout)
