@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import json
 from argparse import Namespace
 from dataclasses import dataclass
@@ -10,6 +6,8 @@ from typing import Any, Literal
 
 @dataclass(kw_only=True, slots=True)
 class PlatformConfig:
+    """Paths and hardware settings for the current training environment."""
+
     dataset_path: str
     config_path: str
     experiments_path: str | None
@@ -20,6 +18,8 @@ class PlatformConfig:
 
 @dataclass(kw_only=True, slots=True)
 class TrainingConfig:
+    """Hyperparameters for a single training run."""
+
     dataset_name: str
     fold: int
     batch_size: int
@@ -43,6 +43,8 @@ class TrainingConfig:
 
 @dataclass(kw_only=True, slots=True)
 class ModelConfig:
+    """Architecture choices for ``panosamic_builder``."""
+
     vit_model: Literal["vit_h", "vit_l", "vit_b"] = "vit_h"
     modalities: tuple[str, ...] = ("image", "depth", "normals")
     semantic_only: bool = False
@@ -55,6 +57,7 @@ class ModelConfig:
 def generate_configs(
     args: Namespace,
 ) -> tuple[PlatformConfig, TrainingConfig, ModelConfig]:
+    """Parse a JSON config file and CLI args into ``(PlatformConfig, TrainingConfig, ModelConfig)``."""
     with open(args.config_path) as fp:
         config_file = json.load(fp)
 
@@ -95,6 +98,7 @@ def generate_configs(
 
 
 def parse_modalities(arg: str) -> tuple[str, ...]:
+    """Convert a free-form modality string (e.g. ``"RGBDN"``) to an ordered tuple of canonical modality names."""
     modalities = []
     if "image" in arg.lower():
         modalities.append("image")

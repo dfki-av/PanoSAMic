@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from typing import Any
 
 import numpy as np
@@ -14,6 +10,10 @@ def prompt_validator(
     device: Any,
     image_size: int = 1024,
 ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
+    """Validate a SAM prompt dict and fall back to a uniform point grid when it is missing or malformed.
+
+    Returns the (possibly synthesised) prompt dict, point_coords, and point_labels.
+    """
     # If prompt is not given or prompt is unclear then segment everything
     if (
         prompt is None

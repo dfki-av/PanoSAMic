@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from functools import partial
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -43,6 +39,16 @@ class PanoSAMic(
     pipeline_tag="image-segmentation",
     tags=["panoramic", "semantic-segmentation", "sam", "multimodal"],
 ):
+    """Panoramic semantic segmentation model built on a frozen SAM backbone.
+
+    Wraps SAM's image encoder, prompt encoder, and mask decoder with trainable
+    ``FeatureFusion`` and ``ConvDecoder`` layers.  Only the fuser and decoder are
+    updated during training; the SAM backbone is always frozen.
+
+    Supports multi-modal inputs (RGB, depth, surface normals), optional dual-view
+    fusion (180° horizontal shift), and instance-guided semantic refinement.
+    """
+
     mask_threshold: float = 0.0
     image_format: str = "RGB"
 
@@ -142,6 +148,20 @@ class PanoSAMic(
         batched_prompts: list[dict[str, Any]] | None = None,
         multimask_output: bool = True,
     ) -> list[dict[str, Any]]:
+        """Run the full PanoSAMic pipeline on a batch of multi-modal inputs.
+
+        Args:
+            batched_input: List of dicts with keys ``"image"``, ``"depth"``,
+                ``"normals"`` — one dict per sample.
+            batched_prompts: Optional per-sample SAM prompts (``point_coords``,
+                ``point_labels``).  Falls back to a uniform grid when ``None``.
+            multimask_output: Whether the mask decoder returns 3 masks per point
+                (True) or just the best one (False).
+
+        Returns:
+            List of dicts with keys ``"instance_masks"`` and ``"sem_preds"``
+            (semantic logits at the original image resolution), one per sample.
+        """
         if batched_prompts is None:
             batched_prompts = []
         input_images, image_shapes = self.data_preparation_block(batched_input)
@@ -214,6 +234,11 @@ class PanoSAMic(
         self,
         batched_input: list[dict[str, torch.Tensor]],
     ) -> tuple[torch.Tensor, list[tuple[int, ...]]]:
+        """Normalize and pad all modality tensors; produce a second 180°-shifted view in dual-view mode.
+
+        Returns a stacked tensor of shape ``(B * num_views * n_modalities, 3, 1024, 1024)``
+        and the original spatial shapes for later un-padding.
+        """
         prep_methods = (
             [
                 partial(self._preprocess, rotate=False),
@@ -253,6 +278,12 @@ class PanoSAMic(
         self,
         input_images: torch.Tensor,
     ) -> tuple[list[torch.Tensor], list[list[torch.Tensor]]]:
+        """Push all modality/view images through the frozen ViT encoder.
+
+        In low-memory + dual-view mode, processes one image's views at a time
+        to bound peak activation memory.  Returns the final embedding per
+        modality-view and the intermediate branch tensors from global-attention layers.
+        """
         N, _, _, _ = input_images.shape
         encoder_output_list = []
         encoder_branch_lists = []
@@ -284,6 +315,11 @@ class PanoSAMic(
         encoder_output_list: list[torch.Tensor],
         encoder_branch_lists: list[list[torch.Tensor]],
     ) -> tuple[torch.Tensor, list[torch.Tensor]]:
+        """Concatenate per-batch encoder outputs and transpose branch lists into per-depth batches.
+
+        Converts ``list[batch → list[branch]]`` to ``list[branch → batched tensor]``
+        so each fusion block receives all images for a single depth level at once.
+        """
         if self.feature_fuser:
             # Reshape a list of batches (N) of a list of branches (depth) we want a list of
             # branches (depth) of batched tensors NxCxHxW
@@ -607,6 +643,12 @@ class PanoSAMic(
         encoder_embeddings: torch.Tensor,
         encoder_branch_batched: list[torch.Tensor],
     ) -> torch.Tensor:
+        """Fuse multi-modal encoder features into a single spatial feature map.
+
+        Uses ``FeatureFusion`` (attention-based) when available, falling back to
+        simple channel-wise concatenation for the baseline.  In dual-view mode,
+        adds sinusoidal horizontal positional encodings to each view's features.
+        """
         if self.feature_fuser:
             fused_features: torch.Tensor = self.feature_fuser(encoder_branch_batched)
             _, C, _, W = fused_features.shape
@@ -628,6 +670,7 @@ class PanoSAMic(
         fused_features: torch.Tensor,
         image_shapes: list[tuple[int, ...]],
     ) -> list[torch.Tensor]:
+        """Decode fused features into per-class logits and upscale to original resolution."""
         semantic_predictions = self.semantic_decoder(fused_features)
 
         upscaled_predictions = [

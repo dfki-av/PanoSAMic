@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from argparse import ArgumentParser
 
 

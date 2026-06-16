@@ -1,13 +1,17 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import torch
 import torch.nn as nn
 
 
 # The decoder is based on the Segformer semantic decoder with some modifications
 class ConvDecoder(nn.Module):
+    """Semantic decoder that fuses multi-depth branch features into per-class logits.
+
+    Concatenates features from all encoder depth levels (``depth * in_channels``),
+    projects them, and upsamples to ``out_size * out_size``.  In dual-view mode an
+    additional ``decoder_attention`` head blends the unshifted and re-aligned
+    shifted views with a learned per-pixel alpha map.
+    """
+
     def __init__(
         self,
         in_channels: int,  # out_channels of FeatureFusion
@@ -40,6 +44,7 @@ class ConvDecoder(nn.Module):
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """Decode features; in dual-view mode blend unshifted and un-rotated shifted logits."""
         x = self.decoder_head(input)
         if self.decoder_attention:
             x1 = x[0::2, ...]
@@ -53,6 +58,12 @@ class ConvDecoder(nn.Module):
 
 
 class SphericalConv2D(nn.Module):
+    """Conv2d with circular horizontal padding and zero vertical padding.
+
+    Circular padding on the left/right edges makes the convolution aware of the
+    panoramic wrap-around without border artifacts.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -101,6 +112,13 @@ class SphericalConv2D(nn.Module):
 
 
 class BaselineDecoder(nn.Module):
+    """Lightweight ablation decoder that operates directly on SAM embeddings without FeatureFusion.
+
+    Concatenates all modality embeddings along the channel dimension and upsamples
+    to ``out_size * out_size`` with two bilinear upsample steps.  Used when
+    ``basic_fusion`` is set in the model config.
+    """
+
     def __init__(
         self,
         in_channels: int,  # out_channels of SAM

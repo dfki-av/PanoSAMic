@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +16,8 @@ from panosamic.model.instance_semantic_fusion import refine_semantic_with_instan
 
 
 class PanoSAMicEvaluator:
+    """Runs inference-only evaluation with instance-guided semantic refinement."""
+
     PBAR_FORMAT: str = (
         ""
         + "{l_bar}{bar}| "
@@ -66,6 +64,7 @@ class PanoSAMicEvaluator:
             self.colors = np.load(color_file)
 
     def load_checkpoint(self):
+        """Load model weights from ``model_path`` (raises if ``model_path`` is ``None``)."""
         if self.model_path is None:
             raise RuntimeError(
                 "No model_path set; model was already loaded externally."
@@ -81,6 +80,7 @@ class PanoSAMicEvaluator:
         self.epoch = checkpoint.get("epoch", -1)
 
     def eval_one_epoch(self, epoch: int) -> tuple[float, float, float]:
+        """Run one evaluation epoch with instance-semantic refinement; returns ``(mIoU, mAcc, avg_loss)``."""
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
         self.model.eval()

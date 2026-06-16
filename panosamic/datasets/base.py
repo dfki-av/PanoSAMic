@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import abc
 import json
 from pathlib import Path
@@ -15,6 +11,15 @@ from panosamic.datasets.augmentations import Augmentation, augment_image
 
 
 class BaseDataset(Dataset):
+    """Abstract base for PanoSAMic datasets.
+
+    Subclasses must implement ``_load_sample`` (load raw numpy arrays for one index)
+    and ``_get_split`` (return area names for a cross-validation fold).
+
+    Handles depth clipping/normalization, per-modality augmentations, class-weight
+    computation, and cache files written alongside the dataset root.
+    """
+
     ALL_AREAS: tuple[str, ...]
     CLASS_NAMES: tuple[str, ...]
     NUM_CLASSES: int
@@ -139,6 +144,7 @@ class BaseDataset(Dataset):
         )
 
     def _generate_sample_list(self) -> list[Path]:
+        """Walk input areas and return a list of sample directory paths, using a JSON cache when available."""
         sample_list = []
         sample_name_cache = self.dataset_path / self.CACHE_FILES["file_names"]
         area_dict = None
@@ -170,6 +176,7 @@ class BaseDataset(Dataset):
         fold_n: int,
         oversample: tuple[int, list[str]] = (0, []),
     ) -> torch.Tensor:
+        """Return per-class inverse-frequency weights; reads from JSON cache or recomputes."""
         class_weights_cache = self.dataset_path / self.CACHE_FILES["class_weights"]
         weights, weights_cache = load_cached(
             cache_file=class_weights_cache, fold_n=fold_n
@@ -193,6 +200,7 @@ class BaseDataset(Dataset):
         return weights
 
     def _get_depth_threshold(self, fold_n: int, inlier_ratio: float) -> float:
+        """Return the depth clip value at ``inlier_ratio`` for this fold; reads from cache or computes from histograms."""
         split_depth_cache = self.dataset_path / self.CACHE_FILES["split_stats"]
 
         depth_thresholds, depth_threshold_cache = load_cached(
@@ -321,6 +329,11 @@ class BaseDataset(Dataset):
 def load_cached(
     cache_file: Path, fold_n: int
 ) -> tuple[list[float] | None, dict[Any, list[float]]]:
+    """Load a JSON cache file and extract the entry for ``fold_n``.
+
+    Returns ``(values, full_cache_dict)`` where ``values`` is ``None`` on a cache miss.
+    Supports both list-format (no cross-validation) and dict-format (per-fold) caches.
+    """
     if cache_file.exists():
         with open(cache_file) as f:
             cache_content = json.load(f)

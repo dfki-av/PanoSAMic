@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 # from math import sqrt
 from pathlib import Path
 from typing import cast
@@ -26,6 +22,8 @@ from panosamic.model import PanoSAMic
 
 
 class PanoSAMicTrainer:
+    """Manages training and validation loops, optimizer, scheduler, checkpointing, and TensorBoard logging."""
+
     PBAR_FORMAT: str = (
         ""
         + "{l_bar}{bar}| "
@@ -141,6 +139,7 @@ class PanoSAMicTrainer:
         self.tb_writer = SummaryWriter(checkpoint_path) if self.dh.is_master else None
 
     def load_checkpoint(self, resume: bool = False):
+        """Load model weights; when ``resume=True`` also restores optimizer, scheduler, and epoch state."""
         self.dh.print(f"Loading weights from: {self.model_path}")
 
         checkpoint = self.dh.load_state(self.model_path)
@@ -162,6 +161,7 @@ class PanoSAMicTrainer:
             self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     def save_checkpoint(self, path: Path, full_checkpoint: bool = True) -> None:
+        """Save a checkpoint on rank 0; ``full_checkpoint=True`` also includes optimizer and scheduler state."""
         if self.dh.is_master:
             if isinstance(self.model, (DataParallel, DistributedDataParallel)):
                 # this is a little hack to make loading weights work with
@@ -190,6 +190,7 @@ class PanoSAMicTrainer:
             torch.save(data, path)
 
     def train_one_epoch(self, epoch: int) -> float:
+        """Run one training epoch; returns the average loss across all batches."""
         # Make sure gradient tracking is on
         self.epoch = epoch
         self.model.train()
@@ -294,6 +295,7 @@ class PanoSAMicTrainer:
         return 0
 
     def eval_one_epoch(self, epoch: int) -> tuple[float, float, float]:
+        """Run one validation epoch; returns ``(mIoU, mAcc, avg_loss)`` on rank 0, ``(0, 0, 0)`` on workers."""
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
         self.model.eval()

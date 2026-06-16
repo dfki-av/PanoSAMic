@@ -1,17 +1,15 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import math
 import os
 import subprocess
 
 
 def is_slurm_job() -> bool:
+    """Return ``True`` when running inside a SLURM job (``SLURM_JOB_ID`` is set)."""
     return bool(os.environ.get("SLURM_JOB_ID", None))
 
 
 def parse_slurm_time_left(time_str: str) -> float:
+    """Parse a SLURM time string (``[D-]HH:MM:SS``) to seconds; returns ``inf`` for unlimited."""
     if time_str in ["NOT_SET", "UNLIMITED"]:
         return math.inf
 

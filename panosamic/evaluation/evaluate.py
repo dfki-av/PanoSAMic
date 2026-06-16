@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import os
 import traceback
 from pathlib import Path
@@ -17,6 +13,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
 def get_checkpoint_path(path: Path, id: str) -> Path | None:
+    """Find the most recent experiment directory under ``path`` that matches ``id``."""
     # Check if a specific experiment is provided
     if id in str(path.name):
         return path

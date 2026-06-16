@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from argparse import ArgumentParser
 from typing import Any
 
@@ -12,6 +8,7 @@ from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 
 
 def show_anns(anns: list[dict[str, Any]]) -> np.ndarray | None:
+    """Render SAM mask annotations as a colour overlay; returns ``None`` if the list is empty."""
     if len(anns) == 0:
         return None
     sorted_anns = sorted(anns, key=(lambda x: x["area"]), reverse=True)
