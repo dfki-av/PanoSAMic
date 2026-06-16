@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from panosamic.evaluation.utils.config import ModelConfig
 from panosamic.model.attention.channel_attention import (
     ChannelAttention,
@@ -12,6 +8,13 @@ from panosamic.model.attention.spatial_attention import SpatialAttention
 
 
 class AttentionBuilder:
+    """Factory that constructs channel and spatial attention modules from a ``ModelConfig`` dict.
+
+    Both ``channel_attention`` and ``spatial_attention`` entries in the config
+    can optionally enable ``moving_attention`` to wrap the base attention in
+    a sliding-window ``MovingAttention`` layer.
+    """
+
     def __init__(self, config: ModelConfig) -> None:
         self.channel_attention = config.channel_attention
         self.spatial_attention = config.spatial_attention

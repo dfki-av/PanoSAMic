@@ -1,13 +1,20 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class MovingAttention(nn.Module):
+    """Sliding-window wrapper that applies a base attention layer patch-by-patch.
+
+    Extracts overlapping windows with ``F.unfold``, runs the wrapped ``att_layer``
+    on each window independently, then reassembles via ``F.fold``.  Supports three
+    aggregation strategies for overlapping regions:
+
+    - ``"none"``  — fold raw pre-sigmoid scores, then apply sigmoid globally
+    - ``"mean"``  — average overlapping scores, then return (no additional sigmoid)
+    - ``"max"``   — fold scores and apply a sharp sigmoid (``15 * (x - 0.5)``), approximating max
+    """
+
     def __init__(
         self,
         att_layer: nn.Module,
@@ -62,7 +69,7 @@ class MovingAttention(nn.Module):
 
         return input * attention
 
-    def __fold_attention_aggregation(  # Fold windows with sigmoid on top
+    def __fold_attention_aggregation(  # fold raw scores then sigmoid globally
         self,
         windows: torch.Tensor,
         output_size: tuple[int, int],

@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import os
 from pathlib import Path
 from typing import TypeVar, overload
@@ -21,6 +17,12 @@ T = TypeVar(
 
 
 class DistributedHandler:
+    """Thin wrapper around PyTorch DDP that abstracts single-GPU and multi-GPU setups.
+
+    All rank-0-only operations (saving, logging, printing) check ``is_master``
+    so callers don't need to repeat the guard.
+    """
+
     def __init__(self, n_gpus: int, backend: str = "nccl") -> None:
         # Check whether we are operating with more than 1 GPU.
         if dist.is_available() and n_gpus > 1:
@@ -45,6 +47,7 @@ class DistributedHandler:
         self.is_master = self.rank == 0
 
     def load_state(self, check_point_path: Path):
+        """Load a checkpoint to the correct device for this process rank."""
         map_location = f"cuda:{self.local_rank:d}" if self.has_cuda else "cpu"
         state = torch.load(
             check_point_path, map_location=map_location, weights_only=True
@@ -156,6 +159,7 @@ class DistributedHandler:
             print(message)
 
     def close(self):
+        """Destroy the process group; no-op in single-GPU mode."""
         if self.is_distributed:
             self.print("Closing process group")
             dist.destroy_process_group()

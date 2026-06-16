@@ -1,12 +1,19 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 
 
 class PanoSAMicLRScheduler(LambdaLR):
+    """Three-phase learning-rate schedule: linear warm-up → plateau/decay → linear wind-down to zero.
+
+    Designed for use with an optimizer that has ``lr=1`` so that ``lr_lambda``
+    returns the absolute learning rate directly.
+
+    Phases:
+    - ``[0, warm_up_steps)``         — linearly ramp from ``start_lr`` to ``max_lr``
+    - ``[warm_up_steps, wind_down_step)`` — constant ``max_lr``, or linear decay to ``intermediate_lr``
+    - ``[wind_down_step, total_steps)``   — linearly decay to zero
+    """
+
     def __init__(
         self,
         optimizer: Optimizer,

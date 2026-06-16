@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from functools import partial
 from pathlib import Path
 
@@ -81,6 +77,7 @@ def load_sam_backbone(model: PanoSAMic, sam_weights_path: Path) -> None:
 
 
 def freeze_parameters(module: nn.Module) -> None:
+    """Disable gradient computation for all parameters in a module."""
     for param in module.parameters():
         param.requires_grad = False
 
@@ -92,6 +89,7 @@ def image_encoder_builder(
     prompt_embed_dim: int,
     vit_model: str = "",
 ) -> ImageEncoderViT:
+    """Build a SAM ViT image encoder with architecture parameters matching the requested model size."""
     # sam_vit_h params (default)
     encoder_embed_dim = 1280
     encoder_depth = 32
@@ -138,6 +136,7 @@ def prompt_encoder_builder(
     image_embedding_size: int,
     input_image_size: int,
 ) -> PromptEncoder:
+    """Build a SAM PromptEncoder with default SAM hyperparameters."""
     model = PromptEncoder(
         embed_dim=embed_dim,
         image_embedding_size=(image_embedding_size, image_embedding_size),
@@ -153,6 +152,7 @@ def prompt_encoder_builder(
 def mask_decoder_builder(
     embedding_dim: int,
 ) -> MaskDecoder:
+    """Build a SAM MaskDecoder with default SAM hyperparameters."""
     model = MaskDecoder(
         num_multimask_outputs=3,  # default from SAM
         transformer=TwoWayTransformer(
@@ -178,6 +178,7 @@ def feature_fusion_builder(
     in_size: int,
     depth: int,
 ) -> BasicFusion | FeatureFusion:
+    """Build a FeatureFusion (attention-based) or BasicFusion (concat/add/mult) module from config."""
     if not config.basic_fusion:
         model = FeatureFusion(
             in_channels=in_channels,
@@ -206,6 +207,7 @@ def semantic_decoder_builder(
     depth: int,
     dual_view_fusion: bool,
 ) -> ConvDecoder:
+    """Build a ConvDecoder with optional dual-view spherical attention head."""
     model = ConvDecoder(
         in_channels=in_channels,
         num_classes=num_classes,
@@ -221,6 +223,10 @@ def panosamic_builder(
     num_classes: int,
     freeze_encoder: bool = True,
 ) -> PanoSAMic:
+    """Assemble a PanoSAMic model from a ModelConfig and apply orthogonal weight initialization.
+
+    SAM backbone weights are NOT loaded here — call ``load_sam_backbone`` separately.
+    """
     image_size: int = 1024  # default from SAM
     vit_patch_size: int = 16  # default from SAM
     image_embedding_size: int = image_size // vit_patch_size  # default from SAM

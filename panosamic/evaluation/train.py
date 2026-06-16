@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import json
 import os
 import sys

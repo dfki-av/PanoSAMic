@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from typing import Any
 
 import numpy as np
@@ -15,6 +11,11 @@ def compute_metrics(
     ignore_index: int,
     device: Any,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Accumulate intersection, union, and target areas over a list of predictions.
+
+    Returns ``(area_intersection, area_union, area_target)`` tensors of shape
+    ``(num_classes,)`` suitable for computing mIoU and mAcc.
+    """
     # Initialize accumulators
     area_intersection = torch.zeros(num_classes, device=device)
     area_union = torch.zeros(num_classes, device=device)

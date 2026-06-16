@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from pathlib import Path
 
 from panosamic.datasets.augmentations import Augmentation
@@ -24,6 +20,7 @@ def build_dataset(
     n_modalities: int,
     test_mode: bool = False,
 ) -> BaseDataset:
+    """Dispatch to ``train_dataset_builder`` or ``test_dataset_builder`` based on ``test_mode``."""
     dataset_path = Path(dataset_path) if isinstance(dataset_path, str) else dataset_path
     if test_mode:
         return test_dataset_builder(
@@ -38,6 +35,7 @@ def build_dataset(
 def train_dataset_builder(
     data_path: Path, config: TrainingConfig, n_modalities: int
 ) -> BaseDataset:
+    """Instantiate a training dataset with augmentations and class-weight computation enabled."""
     if config.dataset_name.lower() == "stanford2d3ds":
         return Stanford2d3dsDataset(
             dataset_path=data_path,
@@ -70,6 +68,7 @@ def train_dataset_builder(
 def test_dataset_builder(
     data_path: Path, config: TrainingConfig, n_modalities: int
 ) -> BaseDataset:
+    """Instantiate an evaluation dataset in eval mode (no augmentations, no weight computation)."""
     if config.dataset_name.lower() == "stanford2d3ds":
         return Stanford2d3dsDataset(
             dataset_path=data_path,

@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from math import log2
 
 import torch
@@ -10,6 +6,11 @@ import torch.nn.functional as F
 
 
 class ChannelAttention(nn.Module):
+    """Channel attention that pools avg and max spatial statistics, then recalibrates each channel.
+
+    Concatenates avg-pool and max-pool outputs → two-layer FC → sigmoid gate.
+    """
+
     def __init__(self, channels: int, bias: bool = False) -> None:
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -40,6 +41,11 @@ class ChannelAttention(nn.Module):
 
 
 class EfficientChannelAttention(nn.Module):
+    """ECA-Net: channel attention with a single adaptive 1-D convolution instead of FC layers.
+
+    Kernel size is automatically derived from the channel count via ``k = f(log2(C))``.
+    """
+
     def __init__(self, channels: int, gamma: int = 2, b: int = 1) -> None:
         super().__init__()
 

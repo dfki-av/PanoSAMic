@@ -1,13 +1,15 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class SpatialAttention(nn.Module):
+    """CBAM-style spatial attention: pool across channels → conv → sigmoid gate.
+
+    Computes avg-pool and max-pool along the channel axis, concatenates them,
+    and predicts a spatial mask via a single convolution.
+    """
+
     def __init__(self, kernel_size: int = 5) -> None:
         super().__init__()
         self.conv = nn.Conv2d(2, 1, kernel_size, padding=kernel_size // 2, bias=False)

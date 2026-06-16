@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 from typing import Literal
 
 import torch
@@ -9,6 +5,14 @@ import torch.nn as nn
 
 
 class BasicFusion(nn.Module):
+    """Ablation fusion module that combines modalities without learned attention.
+
+    Supports three strategies applied per depth level via ``BasicBlock``:
+    - ``"concat"`` — stack modality features along the channel dimension
+    - ``"add"``    — element-wise sum across modalities
+    - ``"mult"``   — element-wise product across modalities
+    """
+
     def __init__(
         self,
         fusion_type: Literal["concat", "add", "mult"],
@@ -49,6 +53,8 @@ class BasicFusion(nn.Module):
 
 
 class BasicBlock(nn.Module):
+    """Single-depth block for BasicFusion: layer-norm → fuse modalities → upsample."""
+
     def __init__(
         self,
         in_channels: int,

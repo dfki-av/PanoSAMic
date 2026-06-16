@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import torch
 import torch.nn as nn
 
@@ -15,6 +11,13 @@ from panosamic.model.attention import (
 
 
 class FeatureFusion(nn.Module):
+    """Attention-based multi-modal feature fusion over ``depth`` encoder branch levels.
+
+    One ``FusionBlock`` is applied at each depth level; outputs are concatenated
+    along the channel dimension producing a ``(B, depth * out_channels, H*4, W*4)``
+    feature map consumed by ``ConvDecoder``.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -47,6 +50,7 @@ class FeatureFusion(nn.Module):
         self,
         inputs: list[torch.Tensor],
     ) -> torch.Tensor:
+        """Apply one FusionBlock per depth level and concatenate the results."""
         fused_output = [
             block(encoder_branch, feed_forward=True)
             for encoder_branch, block in zip(inputs, self.fusion_blocks, strict=False)
@@ -56,6 +60,14 @@ class FeatureFusion(nn.Module):
 
 
 class FusionBlock(nn.Module):
+    """Single-depth fusion: layer-norm → interleave modalities → attention → residual → neck.
+
+    Takes a ``(B * n_modalities, C, H, W)`` branch tensor, re-groups modalities
+    into ``(B, n_modalities * C, H, W)``, applies optional channel and spatial
+    attention with a residual connection, then projects and 4x upsamples via
+    the ``neck`` conv sequence.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -85,6 +97,11 @@ class FusionBlock(nn.Module):
         )
 
     def forward(self, input: torch.Tensor, feed_forward: bool = False) -> torch.Tensor:
+        """Fuse modalities at one depth level.
+
+        ``feed_forward=True`` adds the attention output to the input as a residual,
+        but only when at least one attention module is actually present.
+        """
         N, C, H, W = input.shape
         # only feed forward if an attention is present
         ff: bool = bool(self.channel_attention or self.spatial_attention)

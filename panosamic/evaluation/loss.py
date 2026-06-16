@@ -1,7 +1,3 @@
-"""
-Author: Mahdi Chamseddine
-"""
-
 import math
 from typing import Any
 
@@ -14,6 +10,14 @@ from panosamic.evaluation.utils.data import dict_list_to_tensors
 
 
 class PanoSAMicLoss(nn.Module):
+    """Configurable composite loss for semantic segmentation.
+
+    Combines up to four terms controlled by config keys:
+    ``CrossEntropyLoss``, ``FocalLoss``, ``DiceLoss``, ``JaccardLoss``.
+    Supports ``ScheduledLoss`` to linearly transition weight between the first
+    and second term during training.
+    """
+
     def __init__(
         self,
         class_weights: torch.Tensor | None = None,  # CrossEntropyLoss
@@ -96,6 +100,7 @@ class PanoSAMicLoss(nn.Module):
         label_list: list[dict[str, torch.Tensor]],
         steps: int | None = None,
     ) -> torch.Tensor:
+        """Compute and sum the active loss terms, optionally re-weighting via the schedule."""
         inputs = dict_list_to_tensors(prediction_list, key="sem_preds")
         targets = dict_list_to_tensors(label_list, key="semantics")
 
@@ -138,6 +143,7 @@ class PanoSAMicLoss(nn.Module):
         return overall_loss
 
     def jaccard_loss(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        """Jaccard loss with ignore-index support (uses multilabel mode to handle masking)."""
         N, C, _, _ = inputs.size()
         inputs = inputs.view(N, C, -1)
         targets = targets.view(N, -1)
@@ -150,6 +156,7 @@ class PanoSAMicLoss(nn.Module):
         return self._jaccard_loss(inputs, targets)
 
     def get_scheduled_weights(self, steps: int) -> tuple[float, float]:
+        """Return ``(w1, w2)`` weights at ``steps`` where ``w1 + w2 = 1`` and ``w2`` ramps up via a cosine curve."""
         # _t1 = self.eps - self.transition_start * self.factor + self.factor * steps
         # w = max(self.eps, min(1, _t1))
 
