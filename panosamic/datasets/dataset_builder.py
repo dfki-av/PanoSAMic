@@ -38,7 +38,7 @@ def build_dataset(
 def train_dataset_builder(
     data_path: Path, config: TrainingConfig, n_modalities: int
 ) -> BaseDataset:
-    if "stanford2d3ds" == config.dataset_name.lower():
+    if config.dataset_name.lower() == "stanford2d3ds":
         return Stanford2d3dsDataset(
             dataset_path=data_path,
             fold_n=config.fold,
@@ -47,7 +47,7 @@ def train_dataset_builder(
             augmentations=DEFAULT_AUGMENTATIONS,
             compute_weights=True,
         )
-    elif "structured3d" == config.dataset_name.lower():
+    elif config.dataset_name.lower() == "structured3d":
         return Structured3dDataset(
             dataset_path=data_path,
             fold_n=config.fold,
@@ -70,7 +70,7 @@ def train_dataset_builder(
 def test_dataset_builder(
     data_path: Path, config: TrainingConfig, n_modalities: int
 ) -> BaseDataset:
-    if "stanford2d3ds" == config.dataset_name.lower():
+    if config.dataset_name.lower() == "stanford2d3ds":
         return Stanford2d3dsDataset(
             dataset_path=data_path,
             fold_n=config.fold,
@@ -78,7 +78,7 @@ def test_dataset_builder(
             mask_black=n_modalities == 1,  # mask_black if only RGB
             semantic_only=True,
         )
-    elif "structured3d" == config.dataset_name.lower():
+    elif config.dataset_name.lower() == "structured3d":
         return Structured3dDataset(
             dataset_path=data_path,
             fold_n=config.fold,

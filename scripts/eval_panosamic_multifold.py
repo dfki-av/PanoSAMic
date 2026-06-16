@@ -153,7 +153,7 @@ def _eval_fold(
 
     # Load trained checkpoint (lenient to keep SAM-init params)
     checkpoint = torch.load(model_path, map_location="cpu")
-    model_weights = checkpoint["model"] if "model" in checkpoint else checkpoint
+    model_weights = checkpoint.get("model", checkpoint)
     model.load_state_dict(model_weights, strict=False)
     epoch = checkpoint.get("epoch", -1)
 
@@ -395,7 +395,12 @@ def main() -> None:
             {f for f in args.edge_side_fracs if 0 < f < 0.5}, reverse=True
         )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     results: dict[str, Any] = {
         "device": str(device),
         "folds": {},

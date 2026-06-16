@@ -120,15 +120,15 @@ class BaseDataset(Dataset):
             instances = np.ascontiguousarray(instances[np.newaxis, ...], dtype=np.int64)
             instances_tensor = torch.as_tensor(instances)
 
-        sample_data = dict(
-            image=image_tensor,
-            depth=depth_tensor,
-            normals=normals_tensor,
-        )
-        sample_labels = dict(
-            semantics=semantics_tensor,
-            instances=instances_tensor,
-        )
+        sample_data = {
+            "image": image_tensor,
+            "depth": depth_tensor,
+            "normals": normals_tensor,
+        }
+        sample_labels = {
+            "semantics": semantics_tensor,
+            "instances": instances_tensor,
+        }
 
         return augment_image(
             sample_data,
@@ -230,10 +230,9 @@ class BaseDataset(Dataset):
         print("Computing class weights...")
         # Init oversampling variables
         oversample_list = []
-        oversample_labels = []
-        for cls in oversample[1]:
-            oversample_labels.append(self.CLASS_NAMES.index(cls))
-        oversample_labels = torch.as_tensor(oversample_labels)
+        oversample_labels = torch.as_tensor(
+            [self.CLASS_NAMES.index(cls) for cls in oversample[1]]
+        )
 
         # Counting loop
         class_counts = torch.zeros(self.NUM_CLASSES, dtype=torch.long)
@@ -332,5 +331,4 @@ def load_cached(
             output = cache_content.get(str(fold_n), None)
             return output, cache_content
 
-    return None, {}
     return None, {}

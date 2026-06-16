@@ -87,7 +87,7 @@ class FusionBlock(nn.Module):
     def forward(self, input: torch.Tensor, feed_forward: bool = False) -> torch.Tensor:
         N, C, H, W = input.shape
         # only feed forward if an attention is present
-        ff: bool = True if self.channel_attention or self.spatial_attention else False
+        ff: bool = bool(self.channel_attention or self.spatial_attention)
         x = self.norm(input)
         x = x.view(int(N / self.n_modalities), self.n_modalities * C, H, W)
         _x = self.channel_attention(x) if self.channel_attention else x

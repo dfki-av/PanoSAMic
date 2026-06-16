@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -26,27 +25,7 @@ from panosamic.datasets.matterport3d import Matterport3dDataset
 from panosamic.datasets.stanford2d3ds import Stanford2d3dsDataset
 from panosamic.evaluation.metrics import intersection_and_union_gpu
 
-
-def _ensure_sam3_import(repo_hint: Path | None) -> None:
-    try:
-        import sam3  # type: ignore
-
-        return
-    except ImportError:
-        pass
-
-    candidates: list[Path] = []
-    if repo_hint:
-        candidates.append(repo_hint)
-    default_repo = Path(__file__).resolve().parents[2] / "sam3"
-    candidates.append(default_repo)
-
-    for candidate in candidates:
-        if candidate and candidate.exists():
-            sys.path.append(str(candidate))
-            break
-
-    import sam3  # noqa: F401 # type: ignore
+_MODEL_ID = "facebook/sam3"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -65,12 +44,6 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         required=True,
         help="Path to the processed dataset root.",
-    )
-    parser.add_argument(
-        "--checkpoint",
-        type=Path,
-        required=True,
-        help="Path to sam3.pt checkpoint.",
     )
     parser.add_argument(
         "--folds",
@@ -103,12 +76,6 @@ def _parse_args() -> argparse.Namespace:
         help="Apply majority smoothing with an odd kernel size (e.g., 3 or 5). Use 0 to disable.",
     )
     parser.add_argument(
-        "--resolution",
-        type=int,
-        default=1008,
-        help="Resolution used by Sam3Processor for resizing.",
-    )
-    parser.add_argument(
         "--output",
         type=Path,
         default=Path("runs/sam3_eval_panosamic.json"),
@@ -125,11 +92,6 @@ def _parse_args() -> argparse.Namespace:
         default=Path("colors.npy"),
         help="Fallback path to colors.npy if dataset assets do not contain one.",
     )
-    parser.add_argument(
-        "--sam3-repo",
-        type=Path,
-        help="Optional path to a local SAM3 clone if it is not installed.",
-    )
     return parser.parse_args()
 
 
@@ -143,20 +105,26 @@ def _majority_filter(labels: torch.Tensor, kernel: int) -> torch.Tensor:
     """Apply a simple majority vote in a sliding window to smooth labels."""
     if kernel <= 1:
         return labels
+    # F.unfold and torch.mode have limited MPS support; run on CPU.
+    device = labels.device
+    labels_cpu = labels.cpu()
     pad = kernel // 2
     unfolded = F.unfold(
-        labels.unsqueeze(0).unsqueeze(0).float(), kernel_size=kernel, padding=pad
+        labels_cpu.unsqueeze(0).unsqueeze(0).float(), kernel_size=kernel, padding=pad
     ).squeeze(0)
     mode_vals = torch.mode(unfolded.long(), dim=0).values
-    h, w = labels.shape
-    return mode_vals.view(h, w)
+    h, w = labels_cpu.shape
+    return mode_vals.view(h, w).to(device)
 
 
 def _predict_semantics_for_image(
-    processor,
+    proc,
+    model,
+    device: str,
     image: Image.Image,
     class_names: Sequence[str],
     clutter_idx: int | None,
+    confidence: float,
     coverage_threshold: float,
     smooth_kernel: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -166,26 +134,40 @@ def _predict_semantics_for_image(
     If clutter_idx is provided, clutter channel is filled where no/low coverage.
     Otherwise, coverage thresholding is applied to labels as ignore later.
     """
-    base_state: dict = processor.set_image(image, state={})
+    H, W = image.height, image.width
     num_classes = len(class_names)
-    height, width = image.height, image.width
-    sem_pred = torch.zeros((num_classes, height, width), device=processor.device)
+    sem_pred = torch.zeros((num_classes, H, W), device=device)
 
     for idx, cls in enumerate(class_names):
         if clutter_idx is not None and idx == clutter_idx:
             continue
 
-        prompt_state = processor.set_text_prompt(prompt=cls, state=base_state)
-        masks = prompt_state.get("masks_logits", None)
-        scores = prompt_state.get("scores", None)
-        processor.reset_all_prompts(base_state)
+        inputs = proc(images=image, text=cls, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        if masks is None or scores is None or masks.numel() == 0:
+        with torch.no_grad():
+            out = model(**inputs)
+
+        # Combined score: class confidence * "something is present" gate.
+        presence = out.presence_logits[0, 0].float().sigmoid()
+        class_scores = out.pred_logits[0].float().sigmoid()  # (200,)
+        scores = class_scores * presence  # (200,)
+
+        keep = scores > confidence
+        if not keep.any():
             continue
 
-        masks = masks.squeeze(1)  # (N, H, W)
-        scores = scores.view(-1, 1, 1)
-        sem_pred[idx] = (masks * scores).amax(dim=0)
+        # pred_masks are raw logits at 288x288; upsample then apply sigmoid.
+        masks_logits = out.pred_masks[0][keep].float()  # (K, 288, 288)
+        masks_up = F.interpolate(
+            masks_logits.unsqueeze(1),
+            size=(H, W),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(1)  # (K, H, W)
+        masks_sigmoid = masks_up.sigmoid()
+        kept_scores = scores[keep].view(-1, 1, 1)
+        sem_pred[idx] = (masks_sigmoid * kept_scores).amax(dim=0)
 
     coverage = sem_pred.max(dim=0).values
     if clutter_idx is not None:
@@ -216,17 +198,19 @@ def _load_colors(path: Path, fallback_classes: int) -> np.ndarray | None:
 
 
 def _evaluate_fold(
-    processor,
+    proc,
+    model,
+    device: str,
     dataset,
     class_names: list[str],
     clutter_idx: int | None,
     fold_n: int,
+    confidence: float,
     coverage_threshold: float,
     smooth_kernel: int,
     save_dir: Path | None,
     color_map: np.ndarray | None,
 ) -> dict:
-    device = processor.device
     num_classes = dataset.NUM_CLASSES
     area_intersection = torch.zeros(num_classes, device=device)
     area_union = torch.zeros(num_classes, device=device)
@@ -239,10 +223,13 @@ def _evaluate_fold(
         gt = labels["semantics"].to(device)
 
         sem_pred, coverage = _predict_semantics_for_image(
-            processor=processor,
+            proc=proc,
+            model=model,
+            device=device,
             image=rgb,
             class_names=class_names,
             clutter_idx=clutter_idx,
+            confidence=confidence,
             coverage_threshold=coverage_threshold,
             smooth_kernel=smooth_kernel,
         )
@@ -317,23 +304,26 @@ def _build_dataset(dataset_name: str, dataset_path: Path, fold: int, eval_mode=T
 
 def main() -> None:
     args = _parse_args()
-    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    if args.device:
+        device = args.device
+    elif torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
 
-    _ensure_sam3_import(args.sam3_repo)
-    from sam3.model.sam3_image_processor import Sam3Processor  # type: ignore
-    from sam3.model_builder import build_sam3_image_model  # type: ignore
+    from typing import cast
 
-    model = build_sam3_image_model(
-        device=device,
-        checkpoint_path=str(args.checkpoint),
-        eval_mode=True,
-    )
-    processor = Sam3Processor(
-        model,
-        resolution=args.resolution,
-        device=device,
-        confidence_threshold=args.confidence,
-    )
+    import torch.nn as nn
+    from transformers import Sam3Model, Sam3Processor  # type: ignore[attr-defined]
+
+    proc = Sam3Processor.from_pretrained(_MODEL_ID)
+    dtype = torch.bfloat16 if device in ("cuda", "mps") else torch.float32
+    # cast to nn.Module: transformers wraps .to() with functools.wraps, losing the overload
+    model = cast(nn.Module, Sam3Model.from_pretrained(_MODEL_ID, torch_dtype=dtype))
+    model.to(device)
+    model.eval()
 
     # Determine folds per dataset
     if args.folds is None:
@@ -371,11 +361,14 @@ def main() -> None:
             )
 
         fold_result = _evaluate_fold(
-            processor=processor,
+            proc=proc,
+            model=model,
+            device=device,
             dataset=dataset,
             class_names=class_names,
             clutter_idx=clutter_idx,
             fold_n=fold,
+            confidence=args.confidence,
             coverage_threshold=args.coverage_threshold,
             smooth_kernel=args.smooth_kernel,
             save_dir=args.save_dir,

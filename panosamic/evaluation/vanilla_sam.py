@@ -60,7 +60,12 @@ def main() -> None:
     model_type = sam_checkpoint[idx : idx + len("vit_x")]
 
     sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
     sam.to(device=device)
 
     mask_generator = SamAutomaticMaskGenerator(sam)

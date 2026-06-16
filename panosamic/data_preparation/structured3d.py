@@ -272,7 +272,7 @@ def main():
     if save_depth_stats:
         if args.debug:
             depth_hist = []
-            for _, value in depth_hist_dict.items():
+            for value in depth_hist_dict.values():
                 if depth_hist:
                     depth_hist[0] += value[0]
                 else:
