@@ -47,7 +47,7 @@ def count_flops(
         Dictionary with FLOP counts or None if fvcore not available
     """
     try:
-        from fvcore.nn import FlopCountAnalysis  # type: ignore
+        from fvcore.nn import FlopCountAnalysis
     except ImportError:
         if verbose:
             print("Can't compute model FLOPs. fvcore is not installed.")
@@ -61,7 +61,7 @@ def count_flops(
     if n_modalities > 2:
         input_dict["normals"] = torch.zeros(3, 512, 1024, device=device)
 
-    flops = FlopCountAnalysis(model.eval(), [input_dict])
+    flops = FlopCountAnalysis(model.eval(), [input_dict])  # type: ignore
     total_flops = flops.total()
     gflops = total_flops / 1e9
 
