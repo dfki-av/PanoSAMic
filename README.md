@@ -79,7 +79,8 @@ python panosamic/evaluation/train.py \
 ```
 
 **Key Parameters:**
-- `--dataset`: Choose from `stanford2d3ds`, `matterport3d`, or `structured3d`
+- `--dataset`: Choose from `stanford2d3ds` or `matterport3d` (`tof360` is also
+  supported, but for zero-shot evaluation only — see below)
 - `--vit_model`: SAM encoder variant (`vit_h`, `vit_l`, or `vit_b`)
 - `--modalities`: Comma-separated modalities (`image`, `depth`, `normals`)
 - `--fold`: Dataset fold number for cross-validation
@@ -220,10 +221,12 @@ Download the datasets from their respective sources:
 
 * **Stanford-2D-3D-S**: [https://github.com/alexsax/2D-3D-Semantics](https://github.com/alexsax/2D-3D-Semantics)
 * **Matterport-3D** (pre-processed 360FV-Matterport): [https://github.com/InSAI-Lab/360BEV](https://github.com/InSAI-Lab/360BEV)
-* **Structured-3D**: [https://github.com/bertjiazheng/Structured3D](https://github.com/bertjiazheng/Structured3D)
 * **ToF-360** (used for zero-shot evaluation only, see below): [https://huggingface.co/datasets/COLE-Ricoh/ToF-360](https://huggingface.co/datasets/COLE-Ricoh/ToF-360)
 
 After downloading the data from their respective sources, use the scripts in `panosamic/data_preparation/` to process them in the correct structure.
+
+Preprocessing code for Structured-3D also exists (`panosamic/data_preparation/structured3d.py`) but
+isn't part of our reported results — we ultimately trained and evaluated on real captured data only.
 
 ### Stanford-2D-3D-S
 <table width="100%">
@@ -317,63 +320,6 @@ assets/
         semantics.png
 ...
 [scene_name]/
-[cache_files]
-```
-</td>
-</tr>
-</table>
-
-### Structured-3D
-
-The raw `assets/` directory must contain `broken_files.json` (a list of known-corrupted
-sample paths, shipped with the original download) — it's copied into the processed
-`assets/` folder and used to skip broken samples during preprocessing. If it's missing,
-the script prints a warning and proceeds without filtering.
-
-<table width="100%">
-<colgroup>
-    <col style="width: 50%;">
-</colgroup>
-
-<tr>
-<th><center>Original folder structure</th>
-<th><center>Processed folder structure</th>
-</tr>
-<tr>
-<td valign="top">
-
-```scheme
-[scene_name]/
-    2D_rendering/
-        [sample_name]/
-            panorama/
-                full/
-                    albedo.png
-                    depth.png
-                    instance.png
-                    normal.png
-                    rgb_coldlight.png
-                    rgb_rawlight.png
-                    rgb_warmlight.png
-                    semantic.png
-...
-[scene_name]/
-assets/
-```
-</td>
-<td valign="top">
-
-```scheme
-[scene_name]/
-    [sample_name]/
-        depth_mask.webp
-        depth.png
-        normals.webp
-        rgb.webp
-        semantics.png
-...
-[scene_name]/
-assets/
 [cache_files]
 ```
 </td>

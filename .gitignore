@@ -219,6 +219,9 @@ __marimo__/
 # PyTorch and DL
 *.pth
 
+# macOS
+.DS_Store
+
 # Project Specific
 experiments/*
 visualizations/*
