@@ -316,7 +316,7 @@ def main() -> None:
     from typing import cast
 
     import torch.nn as nn
-    from transformers import Sam3Model, Sam3Processor  # type: ignore[attr-defined]
+    from transformers import Sam3Model, Sam3Processor  # ty: ignore[unresolved-import]
 
     proc = Sam3Processor.from_pretrained(_MODEL_ID)
     dtype = torch.bfloat16 if device in ("cuda", "mps") else torch.float32

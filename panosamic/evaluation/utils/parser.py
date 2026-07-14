@@ -78,7 +78,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--dataset",
         type=str,
-        choices=["stanford2d3ds", "structured3d", "matterport3d"],
+        choices=["stanford2d3ds", "structured3d", "matterport3d", "tof360"],
         required=True,
         help="Panoramic dataset name",
     )

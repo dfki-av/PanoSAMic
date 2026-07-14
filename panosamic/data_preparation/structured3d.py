@@ -195,7 +195,8 @@ def main():
     scene_list.sort()  # Keep the areas sorted
     if not scene_list:
         raise FileNotFoundError(f"No scenes were found in {dataset_dir}")
-    # assert "assets" in dir_contents, f"Missing 'assets' directory in {dataset_dir}"
+    if "assets" not in dir_contents:
+        raise FileNotFoundError(f"Missing 'assets' directory in {dataset_dir}")
 
     output_dir = Path(args.output_root)
     if not output_dir.is_dir():
@@ -209,9 +210,20 @@ def main():
     # (dataset_dir / "assets").copy_into(output_dir, dirs_exist_ok=True)
     copytree(dataset_dir / "assets", output_dir / "assets", dirs_exist_ok=True)
 
-    with open(output_dir / "assets" / "broken_files.json") as fp:
-        corrupted_samples = json.load(fp)
-    corrupted_samples = [item for item in corrupted_samples if "panorama/full" in item]
+    broken_files_path = output_dir / "assets" / "broken_files.json"
+    if broken_files_path.exists():
+        with open(broken_files_path) as fp:
+            corrupted_samples = json.load(fp)
+        corrupted_samples = [
+            item for item in corrupted_samples if "panorama/full" in item
+        ]
+    else:
+        print(
+            f"-- Warning: {broken_files_path} not found. This file ships inside the "
+            "raw Structured-3D 'assets' directory and lists known-corrupted samples "
+            "to skip; proceeding without filtering any samples."
+        )
+        corrupted_samples = []
 
     # Ensure resize ratio is within the specified limit
     scale = min(max(args.resize_image, 0.1), 1)

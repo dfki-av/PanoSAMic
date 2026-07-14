@@ -14,7 +14,7 @@ Our semantic decoder uses spherical attention and dual view fusion to overcome t
 
 ## Installation
 
-**GPU requirements:** ≥16 GB VRAM for ViT-H inference · ≥24 GB for training · Apple Silicon (MPS) device support is included but has not been verified on physical hardware
+**GPU requirements:** ≥16 GB VRAM for ViT-H inference · ≥24 GB for training · `scripts/demo.py` supports Apple Silicon (MPS) acceleration; the main training/evaluation pipeline (`train.py`/`evaluate.py`) has no MPS support and falls back to CPU without CUDA
 
 1. Clone the repository and install dependencies:
 
@@ -39,6 +39,24 @@ Our semantic decoder uses spherical attention and dual view fusion to overcome t
       ```
 
 ## Usage
+
+### Quick Demo
+
+A hosted browser demo is available at
+[huggingface.co/spaces/dfki-av/PanoSAMic-demo](https://huggingface.co/spaces/dfki-av/PanoSAMic-demo) —
+no install required.
+
+To run the model locally on any single panoramic image (no dataset download needed),
+use `scripts/demo.py`. It writes a colorized segmentation image, the raw per-pixel
+class-id array, and a class legend to an output directory:
+
+```shell
+python scripts/demo.py --image /path/to/panorama.jpg --output_dir demo_output/
+```
+
+By default this uses the released RGB-only Stanford2D3DS checkpoint (no depth/normals
+needed). Pass `--checkpoint`, `--subfolder`, `--config_path`, and `--modalities` to use
+a different released checkpoint (e.g. one trained with depth/normals).
 
 ### Training
 
@@ -110,12 +128,35 @@ directory containing one (e.g. exported via `scripts/export_checkpoint_for_hub.p
 See [`MODEL_CARD.md`](MODEL_CARD.md) for the full checkpoint table and the
 numbers each checkpoint reproduces.
 
+### Zero-shot evaluation on ToF-360
+
+We don't train on [ToF-360](https://huggingface.co/datasets/COLE-Ricoh/ToF-360)
+(only 179 real-world samples across 4 scenes — too little to train on) — instead
+we zero-shot evaluate a Stanford2D3DS-pretrained checkpoint against it, with
+ToF-360's own label ontology remapped to Stanford2D3DS's 13 classes at load time
+(see `panosamic/datasets/tof360.py`):
+
+```shell
+python panosamic/evaluation/evaluate.py \
+    --dataset_path /path/to/processed/tof360 \
+    --config_path config/config_tof360_dv.json \
+    --checkpoint dfki-av/PanoSAMic \
+    --subfolder stanford2d3ds-vith-rgb-fold1 \
+    --sam_weights_path ./sam_weights \
+    --dataset tof360 \
+    --fold 1 \
+    --vit_model vit_h \
+    --modalities image \
+    --num_gpus 1
+```
+
 ### Configuration Files
 
 Configuration files in the [config/](config/) directory control model architecture and training parameters. Available configs:
 - `config_stanford2d3ds_dv.json` - Stanford2D3DS dual-view configuration
 - `config_stanford2d3ds_sv.json` - Stanford2D3DS single-view configuration
 - `config_matterport3d_dv.json` - Matterport3D dual-view configuration
+- `config_tof360_dv.json` - ToF-360 zero-shot evaluation configuration (mirrors `config_stanford2d3ds_dv.json`)
 - `config_baseline.json` - Baseline configuration
 
 ### SAM3 Baseline Evaluation
@@ -180,6 +221,7 @@ Download the datasets from their respective sources:
 * **Stanford-2D-3D-S**: [https://github.com/alexsax/2D-3D-Semantics](https://github.com/alexsax/2D-3D-Semantics)
 * **Matterport-3D** (pre-processed 360FV-Matterport): [https://github.com/InSAI-Lab/360BEV](https://github.com/InSAI-Lab/360BEV)
 * **Structured-3D**: [https://github.com/bertjiazheng/Structured3D](https://github.com/bertjiazheng/Structured3D)
+* **ToF-360** (used for zero-shot evaluation only, see below): [https://huggingface.co/datasets/COLE-Ricoh/ToF-360](https://huggingface.co/datasets/COLE-Ricoh/ToF-360)
 
 After downloading the data from their respective sources, use the scripts in `panosamic/data_preparation/` to process them in the correct structure.
 
@@ -282,6 +324,12 @@ assets/
 </table>
 
 ### Structured-3D
+
+The raw `assets/` directory must contain `broken_files.json` (a list of known-corrupted
+sample paths, shipped with the original download) — it's copied into the processed
+`assets/` folder and used to skip broken samples during preprocessing. If it's missing,
+the script prints a warning and proceeds without filtering.
+
 <table width="100%">
 <colgroup>
     <col style="width: 50%;">
@@ -318,6 +366,66 @@ assets/
 ```scheme
 [scene_name]/
     [sample_name]/
+        depth_mask.webp
+        depth.png
+        normals.webp
+        rgb.webp
+        semantics.png
+...
+[scene_name]/
+assets/
+[cache_files]
+```
+</td>
+</tr>
+</table>
+
+### ToF-360
+
+Used for zero-shot evaluation only (see [above](#zero-shot-evaluation-on-tof-360)) —
+we don't train on it. Only the `RGB/`, `depth/`, `normal/`, `semantics/`, and
+`annotation/` subfolders are used (skipping `HHA/`, `XYZ/`, `RGB_mh_aligned/`,
+`pretty/`, and `layout/`, which we don't need). ToF-360's raw semantic label
+ids are copied through unchanged during preprocessing; the collapse to
+Stanford2D3DS's 13-class taxonomy happens at load time via a hardcoded id
+mapping in `panosamic/datasets/tof360.py`. Unlike the other three datasets,
+ToF-360 ships no `assets/colors.npy` for visualization, so preprocessing
+generates one (Stanford2D3DS's own published palette, since ToF360Dataset
+reuses its exact class taxonomy).
+
+<table width="100%">
+<colgroup>
+    <col style="width: 50%;">
+</colgroup>
+
+<tr>
+<th><center>Original folder structure</th>
+<th><center>Processed folder structure</th>
+</tr>
+<tr>
+<td valign="top">
+
+```scheme
+[scene_name]/
+    RGB/
+        [idx]_[scene_name]_equi_rgb.png
+    depth/
+        [idx]_[scene_name]_equi_depth.png
+    normal/
+        [idx]_[scene_name]_equi_normal.png
+    semantics/
+        [idx]_[scene_name]_equi_semantic.npy
+    annotation/
+        [idx]_[scene_name]_equi_coco.json
+...
+[scene_name]/
+```
+</td>
+<td valign="top">
+
+```scheme
+[scene_name]/
+    [idx]/
         depth_mask.webp
         depth.png
         normals.webp

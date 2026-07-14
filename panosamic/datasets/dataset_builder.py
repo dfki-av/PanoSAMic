@@ -5,6 +5,7 @@ from panosamic.datasets.base import BaseDataset
 from panosamic.datasets.matterport3d import Matterport3dDataset
 from panosamic.datasets.stanford2d3ds import Stanford2d3dsDataset
 from panosamic.datasets.structured3d import Structured3dDataset
+from panosamic.datasets.tof360 import ToF360Dataset
 from panosamic.evaluation.utils.config import TrainingConfig
 
 DEFAULT_AUGMENTATIONS = (
@@ -61,6 +62,14 @@ def train_dataset_builder(
             augmentations=DEFAULT_AUGMENTATIONS,
             compute_weights=True,
         )
+    elif "tof360" in config.dataset_name.lower():
+        # ToF-360 is eval-only (see ToF360Dataset docstring); included here for
+        # API completeness, without augmentations/class-weight computation.
+        return ToF360Dataset(
+            dataset_path=data_path,
+            fold_n=config.fold,
+            semantic_only=True,
+        )
     else:
         raise NotImplementedError
 
@@ -86,6 +95,13 @@ def test_dataset_builder(
         )
     elif "matterport3d" in config.dataset_name.lower():
         return Matterport3dDataset(
+            dataset_path=data_path,
+            fold_n=config.fold,
+            eval_mode=True,
+            semantic_only=True,
+        )
+    elif "tof360" in config.dataset_name.lower():
+        return ToF360Dataset(
             dataset_path=data_path,
             fold_n=config.fold,
             eval_mode=True,
