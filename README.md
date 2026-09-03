@@ -198,8 +198,6 @@ Download the datasets from their respective sources:
 * **Stanford-2D-3D-S**: [https://github.com/alexsax/2D-3D-Semantics](https://github.com/alexsax/2D-3D-Semantics)
 * **Matterport-3D** (pre-processed 360FV-Matterport): [https://github.com/InSAI-Lab/360BEV](https://github.com/InSAI-Lab/360BEV)
 
-For convenience, the pre-processed Stanford-2D-3D-S and Matterport-3D datasets can be downloaded [here](https://cloud.dfki.de/owncloud/index.php/s/psKpwsL8B3yT3dK).
-
 After downloading the data from their respective sources, use the scripts in `panosamic/data_preparation/` to process them in the correct structure.
 
 Preprocessing code for Structured-3D also exists (`panosamic/data_preparation/structured3d.py`) but
